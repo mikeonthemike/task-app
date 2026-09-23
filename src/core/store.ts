@@ -1,5 +1,7 @@
 import type { AppConfig } from "../config.js";
-import { appendTask, completeTask, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
+import { nanoid } from "nanoid";
+import { nextOccurrence } from "./recurrence.js";
+import { appendTask, completeTask, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
 import type { NewTaskInput, Task } from "./task.js";
 import { isPastOrToday, isToday, todayStr } from "./task.js";
 import { type Goal, type GoalsFile, loadGoals, readProjectMeta } from "./goals.js";
@@ -153,12 +155,36 @@ export class TaskStore {
     return task;
   }
 
+  /**
+   * Completes a task. For a recurring task, also creates the next occurrence on the line
+   * above (fresh id, dates moved forward, #focus dropped), as the Tasks plugin does when
+   * you tick one in Obsidian. `next` is null if the rule couldn't be parsed.
+   */
   complete(id: string): Task | undefined {
+    return this.completeWithRecurrence(id)?.task;
+  }
+
+  completeWithRecurrence(id: string): { task: Task; next: Task | null; unparsedRule: boolean } | undefined {
     const task = this.byId(id);
     if (!task) return undefined;
+    if (task.done) return { task, next: null, unparsedRule: false };
     const updated = completeTask(task);
     this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
-    return updated;
+    if (!task.recurrence) return { task: updated, next: null, unparsedRule: false };
+
+    const dates = nextOccurrence(task.recurrence, task);
+    if (!dates) return { task: updated, next: null, unparsedRule: true };
+    const next = insertAbove(updated, {
+      ...task,
+      ...dates,
+      id: nanoid(8),
+      done: false,
+      doneDate: null,
+      created: todayStr(),
+      tags: focusTags(task.tags, false),
+    });
+    this.refresh(); // line numbers below the insert moved
+    return { task: this.byId(id)!, next: this.byId(next.id)!, unparsedRule: false };
   }
 
   uncomplete(id: string): Task | undefined {

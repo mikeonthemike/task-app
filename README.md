@@ -82,6 +82,25 @@ each command spelled out. For a recurring morning briefing, set up a
 [scheduled Claude Code task](https://docs.claude.com) that runs the "daily planning" steps from
 `CLAUDE.md` each weekday.
 
+## Daily routines
+
+The day runs on four routines that Claude follows, defined in
+[`skill/task-app/routines/`](./skill/task-app/routines):
+
+| Routine | When | Writes to the daily note |
+| --- | --- | --- |
+| Morning plan | weekdays 08:30 (scheduled) | `## Plan`: proposed top 3, focus blocks, follow-ups due |
+| Evening shutdown | Mon–Thu 16:30 (scheduled) | `## Shutdown`: done, carry-over, actions to capture, draft top 3 |
+| Weekly review | Fridays 16:00 (scheduled) | `## Weekly Review`: inbox, waiting-on, goal health, next week |
+| Meeting-notes capture | on demand ("process my notes") | adds tasks after you confirm |
+
+The scheduled runs only *propose*. You reply in the run's session to confirm the top 3
+(`task-app focus`), book focus blocks in Calendar, or capture actions.
+
+`skill/task-app/` is also the source for the `task-app` Claude skill, which makes all of this
+available from any Claude session on this Mac. After changing it, run `npm run skill:pack` and
+upload `task-app-skill.zip` under Settings → Capabilities → Skills.
+
 ## Vault layout
 
 ```

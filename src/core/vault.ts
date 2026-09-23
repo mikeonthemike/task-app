@@ -374,6 +374,17 @@ export function completeTask(task: Task): Task {
   return updateTask({ ...task, done: true, doneDate: todayStr() });
 }
 
+/** Inserts `newTask` (+ notes) on the line above `anchor`, as the Tasks plugin does for a recurrence. */
+export function insertAbove(anchor: Task, newTask: Task): Task {
+  const lines = readFileSync(anchor.location.file, "utf8").split("\n");
+  const index = locateLine(anchor, lines);
+  const indent = /^(\s*)/.exec(lines[index])![1];
+  const placed: Task = { ...newTask, location: { file: anchor.location.file, lineIndex: index } };
+  lines.splice(index, 0, indent + serializeTaskLine(placed), ...newTask.notes.map((n) => `${indent}  ${n}`));
+  writeFileAtomic(anchor.location.file, lines.join("\n"));
+  return placed;
+}
+
 /** Removes a task's line (and its trailing note lines) from its file entirely. */
 export function deleteTaskLine(task: Task): void {
   const lines = readFileSync(task.location.file, "utf8").split("\n");

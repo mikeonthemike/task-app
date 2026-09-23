@@ -35,6 +35,8 @@ task-app project <name> [--goal G|none] [--area A|none]   # show a project / set
 task-app review [--json] [--date D]   # one read of everything a plan/review needs
 task-app note show [--date D] [--section S] [--json]
 task-app note write --section S [--date D] [--text "..."]  # or pipe the body on stdin
+task-app note show --previous --section Shutdown   # latest earlier note with that section
+task-app notes [--since D] [--content] [--json]    # changed notes: ## Actions + tasks already captured from each
 task-app sweep    # relocates completed tasks into Logbook.md; safe to run anytime
 task-app doctor [--fix] [--json]  # health check: duplicate ids, missing ✅ dates, junk in titles, misfiled Inbox items
 ```
@@ -121,23 +123,25 @@ directly, there's no separate sync module in the app to call. General pattern:
 This is capture-only for both Gmail and Slack: surface candidates, don't
 auto-triage or silently reorganize the user's existing tasks.
 
-## Daily planning
+## Routines: morning plan, shutdown, weekly review, meeting capture
 
-When asked for a daily plan (or if this runs as a scheduled morning task):
+The step-by-step routines live in `skill/task-app/routines/`. **Read the matching file and
+follow it**:
 
-1. `task-app review --json`, and `task-app note show --json` to see whether a Plan already
-   exists today (if it does, update it rather than starting over).
-2. Pull today's Calendar events with your Calendar connector and work out the free blocks.
-3. Pick 3 focus tasks that serve the goals, favouring anything overdue, due soon, or on a goal
-   with `noActiveTask`. Check their estimates against the free time and say if the day is
-   overloaded. Flag follow-ups that are due.
-4. In an interactive session, confirm the top 3 with the user, then `task-app focus <ids>`.
-   A scheduled run with no one to ask may set focus itself, and must say it did so in the Plan.
-5. Write the result with `task-app note write --section Plan` (body on stdin), and keep it
-   short: the top 3 with ids, goals and estimates; proposed focus blocks; follow-ups due;
-   anything at risk.
-6. Calendar focus blocks are **proposals only**. Create events only after the user
-   explicitly says yes, never from a scheduled run.
+- `morning-plan.md`: "plan my day", or the 08:30 weekday scheduled task
+- `shutdown.md`: "wrap up", or the 16:30 Mon–Thu scheduled task
+- `weekly-review.md`: "weekly review", or the Friday 16:00 scheduled task (it includes Friday's shutdown)
+- `meeting-capture.md`: "process my notes", on demand only
+
+Rules they all share: **propose, then act.** The user confirms the top 3 before
+`task-app focus` runs, and calendar focus blocks are created only after an explicit yes.
+Captures from notes are listed first and added on a yes. Unattended scheduled runs write their
+proposals to the daily note and chat, and change nothing else.
+
+`skill/task-app/` is the source for the user's `task-app` account skill (uploaded in the
+Claude app under Settings → Skills). The copy under `~/Library/Application Support/Claude/…`
+is a synced cache, so don't edit it. After changing the skill here, tell the user to re-upload
+it.
 
 ## Developing task-app
 

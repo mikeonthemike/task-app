@@ -1,0 +1,74 @@
+import { addDays, daysBetween, todayStr } from "./task.js";
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+function dow(date: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const target = new Date(y, m - 1 + months, 1);
+  // Clamp to the month's last day: Jan 31 + 1 month → Feb 28, not Mar 3.
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(d, lastDay));
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-${String(target.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * The next date after `from` for an Obsidian Tasks-style rule, or null when the rule
+ * isn't one we understand. Supports: every [N] day(s)/week(s)/month(s)/year(s),
+ * every weekday, every <weekday name>.
+ */
+export function nextDate(rule: string, from: string): string | null {
+  const r = rule.trim().toLowerCase().replace(/\s+when done$/, "");
+  let m: RegExpExecArray | null;
+
+  if ((m = /^every (?:(\d+) )?(day|week|month|year)s?$/.exec(r))) {
+    const n = Number(m[1] ?? 1);
+    switch (m[2]) {
+      case "day": return addDays(from, n);
+      case "week": return addDays(from, 7 * n);
+      case "month": return addMonths(from, n);
+      case "year": return addMonths(from, 12 * n);
+    }
+  }
+  if (r === "every weekday") {
+    let d = addDays(from, 1);
+    while (dow(d) === 0 || dow(d) === 6) d = addDays(d, 1);
+    return d;
+  }
+  if ((m = /^every (sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/.exec(r))) {
+    const want = WEEKDAYS.indexOf(m[1]);
+    let d = addDays(from, 1);
+    while (dow(d) !== want) d = addDays(d, 1);
+    return d;
+  }
+  return null;
+}
+
+export interface Dates {
+  start: string | null;
+  scheduled: string | null;
+  due: string | null;
+}
+
+/**
+ * Dates for the next occurrence. Like the Tasks plugin, the reference is due, else
+ * scheduled, else start ("when done" rules use today instead), and every date moves by
+ * the same offset. A task with no dates at all gets the next date as its scheduled date.
+ * Returns null for a rule we can't parse.
+ */
+export function nextOccurrence(rule: string, dates: Dates, today = todayStr()): Dates | null {
+  const whenDone = /\swhen done$/i.test(rule.trim());
+  const ref = dates.due ?? dates.scheduled ?? dates.start;
+  const next = nextDate(rule, whenDone || !ref ? today : ref);
+  if (!next) return null;
+  if (!ref) return { start: null, scheduled: next, due: null };
+
+  // Move the reference date onto `next` and every other date by the same offset.
+  const offset = daysBetween(ref, next);
+  const shift = (d: string | null) => (d ? addDays(d, offset) : null);
+  return { start: shift(dates.start), scheduled: shift(dates.scheduled), due: shift(dates.due) };
+}

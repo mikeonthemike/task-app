@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { AppConfig } from "../config.js";
 import { writeFileAtomic } from "./vault.js";
@@ -26,6 +26,30 @@ function findSection(lines: string[], name: string): SectionSpan | null {
   return { start, end };
 }
 
+/** Body of `## name` within markdown `content`, or null. Shared with the meeting-notes scan. */
+export function sectionOf(content: string, name: string): string | null {
+  const lines = content.split("\n");
+  const span = findSection(lines, name);
+  return span ? lines.slice(span.start + 1, span.end).join("\n").trim() : null;
+}
+
+const DAILY_NOTE_RE = /^(\d{4}-\d{2}-\d{2})\.md$/;
+
+/**
+ * The most recent daily note strictly before `date` — and containing `## section`, if
+ * given. How the morning run finds the last shutdown across weekends and days off.
+ */
+export function previousNoteDate(config: AppConfig, date: string, section?: string): string | null {
+  const dir = join(config.vaultPath, config.dailyNotesDir ?? "");
+  if (!existsSync(dir)) return null;
+  const dates = readdirSync(dir)
+    .map((f) => DAILY_NOTE_RE.exec(f)?.[1])
+    .filter((d): d is string => !!d && d < date)
+    .sort()
+    .reverse();
+  return dates.find((d) => !section || readSection(config, d, section) !== null) ?? null;
+}
+
 export function readNote(config: AppConfig, date: string): string | null {
   const path = dailyNotePath(config, date);
   return existsSync(path) ? readFileSync(path, "utf8") : null;
@@ -34,10 +58,7 @@ export function readNote(config: AppConfig, date: string): string | null {
 /** Body of `## name` (without the heading), or null if the note or section doesn't exist. */
 export function readSection(config: AppConfig, date: string, name: string): string | null {
   const content = readNote(config, date);
-  if (content === null) return null;
-  const lines = content.split("\n");
-  const span = findSection(lines, name);
-  return span ? lines.slice(span.start + 1, span.end).join("\n").trim() : null;
+  return content === null ? null : sectionOf(content, name);
 }
 
 export function listSections(config: AppConfig, date: string): string[] {

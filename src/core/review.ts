@@ -66,6 +66,7 @@ export function buildReview(config: AppConfig, store: TaskStore, today = todaySt
       focus: focus.length,
       waiting: waiting.length,
       doneLast7: recentlyDone.length,
+      doneToday: all.filter((t) => t.done && t.doneDate === today).length,
     },
     focus: focus.map(json),
     today: todayTasks.map(json),
@@ -93,6 +94,7 @@ export function buildReview(config: AppConfig, store: TaskStore, today = todaySt
       todayMinutes: minutes(todayTasks),
       unestimatedToday: todayTasks.filter((t) => estimateMinutes(t) === null).map((t) => t.id),
     },
+    doneToday: all.filter((t) => t.done && t.doneDate === today).map(json),
     recentlyDone: recentlyDone.map(json),
     vaultIssues: checkVault(config),
   };

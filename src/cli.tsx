@@ -14,7 +14,8 @@ import { taskJson } from "./core/json.js";
 import { estimateTags, focusTags, formatDuration, goalTags, isFocus, MAX_FOCUS, waitingOn, waitingTags } from "./core/meta.js";
 import { resolveGoal, updateProjectMeta } from "./core/goals.js";
 import { buildReview } from "./core/review.js";
-import { dailyNotePath, listSections, readNote, readSection, writeSection } from "./core/dailyNote.js";
+import { dailyNotePath, listSections, previousNoteDate, readNote, readSection, writeSection } from "./core/dailyNote.js";
+import { scanNotes } from "./core/notes.js";
 import { todayStr } from "./core/task.js";
 import { readFileSync } from "node:fs";
 
@@ -117,7 +118,8 @@ Usage:
                                      waiting, project:<name>, area:<name>,
                                      goal:<name>. Default: today.
 
-  task-app complete <id>            Mark a task done.
+  task-app complete <id>            Mark a task done. A recurring task (🔁) gets
+                                     its next occurrence on the line above.
   task-app uncomplete <id>          Undo that.
 
   task-app edit <id> [flags]        Update fields in place (doesn't move file).
@@ -136,7 +138,9 @@ Usage:
                                      read: focus, overdue, follow-ups, stale
                                      items, goal and project health, estimates.
 
-  task-app note show [--date D] [--section S] [--json]
+  task-app note show [--date D] [--section S] [--previous] [--json]
+                                     --previous: the latest daily note before D
+                                     (with section S, if given).
   task-app note write --section S [--date D] [--text "..."]  (or body on stdin)
                                      Read/replace a "## S" section of the daily
                                      note <vault>/YYYY-MM-DD.md. Other content
@@ -148,6 +152,12 @@ Usage:
   task-app sweep                    Relocate completed tasks into Logbook.md,
                                      tidying up Project/Area files. Safe to run
                                      anytime — doesn't change what "logbook" shows.
+
+  task-app notes [--since D] [--content] [--json]
+                                     Your notes (meeting + daily) changed since D
+                                     (default today): ## Actions section and the
+                                     tasks already captured from each ("From: …").
+                                     Read-only. Skips task files and templates.
 
   task-app doctor [--fix] [--json]  Check task files for duplicate ids, missing
                                      done dates, junk in titles and misfiled Inbox
@@ -245,9 +255,13 @@ async function main(): Promise<void> {
     const [id] = rest;
     if (!id) throw new Error("Usage: task-app complete <id>");
     const store = new TaskStore(config);
-    const task = store.complete(id);
-    if (!task) throw new Error(`No task with id "${id}".`);
-    console.log(`Completed: ${formatTask(task)}`);
+    const result = store.completeWithRecurrence(id);
+    if (!result) throw new Error(`No task with id "${id}".`);
+    console.log(`Completed: ${formatTask(result.task)}`);
+    if (result.next) console.log(`Next occurrence: ${formatTask(result.next)}`);
+    if (result.unparsedRule) {
+      console.log(`Warning: couldn't parse recurrence "${result.task.recurrence}", so no next occurrence was created.`);
+    }
     return;
   }
 
@@ -387,10 +401,21 @@ async function main(): Promise<void> {
   if (cmd === "note") {
     const [sub, ...noteArgs] = rest;
     const args = parseArgs(noteArgs);
-    const date = nullableDate(args.one("date"), "date") ?? todayStr();
     const section = args.one("section");
+    let date = nullableDate(args.one("date"), "date") ?? todayStr();
 
     if (sub === "show") {
+      if (args.bool("previous")) {
+        const prev = previousNoteDate(config, date, section);
+        if (!prev) {
+          if (args.bool("json")) return console.log(JSON.stringify({ date: null, exists: false, sections: {} }));
+          console.log(`(no daily note before ${date}${section ? ` with a "## ${section}" section` : ""})`);
+          process.exitCode = 2;
+          return;
+        }
+        date = prev;
+        if (!args.bool("json")) console.log(`# ${date}\n`);
+      }
       if (args.bool("json")) {
         const exists = readNote(config, date) !== null;
         const sections = Object.fromEntries(listSections(config, date).map((name) => [name, readSection(config, date, name)]));
@@ -415,6 +440,20 @@ async function main(): Promise<void> {
       return;
     }
     throw new Error('Usage: task-app note show|write ... (see "task-app help")');
+  }
+
+  if (cmd === "notes") {
+    const args = parseArgs(rest);
+    const since = nullableDate(args.one("since"), "since") ?? todayStr();
+    const store = new TaskStore(config);
+    const notes = scanNotes(config, store.all(), { since, includeBody: args.bool("content") });
+    if (args.bool("json")) return console.log(JSON.stringify(notes, null, 2));
+    if (!notes.length) return console.log(`(no notes changed since ${since})`);
+    for (const n of notes) {
+      const actions = n.actions ? `${n.actions.split("\n").filter((l) => l.trim()).length} action line(s)` : "no ## Actions";
+      console.log(`${n.modified}  ${n.path}  — ${actions}, ${n.captured.length} task(s) captured`);
+    }
+    return;
   }
 
   if (cmd === "doctor") {
