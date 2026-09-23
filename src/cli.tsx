@@ -10,6 +10,45 @@ import type { NewTaskInput, Task } from "./core/task.js";
 import { quickParse } from "./core/quickParse.js";
 import { formatTask, nullableDate, normalizeTag, parseArgs, parsePriority } from "./core/cliArgs.js";
 import { checkVault, cleanTitle, fixVault, type Issue } from "./core/doctor.js";
+import { taskJson } from "./core/json.js";
+import { estimateTags, focusTags, formatDuration, goalTags, isFocus, MAX_FOCUS, waitingOn, waitingTags } from "./core/meta.js";
+import { resolveGoal, updateProjectMeta } from "./core/goals.js";
+import { buildReview } from "./core/review.js";
+import { dailyNotePath, listSections, readNote, readSection, writeSection } from "./core/dailyNote.js";
+import { todayStr } from "./core/task.js";
+import { readFileSync } from "node:fs";
+
+/** `--followup` is an alias for `--scheduled`: a waiting-on task shows up in Today on its follow-up date. */
+function scheduledFlag(args: ReturnType<typeof parseArgs>): string | null | undefined {
+  const scheduled = args.one("scheduled");
+  const followup = args.one("followup");
+  if (scheduled !== undefined && followup !== undefined && scheduled !== followup) {
+    throw new Error("Pass --scheduled or --followup, not both (--followup is an alias for --scheduled).");
+  }
+  const value = followup ?? scheduled;
+  return nullableDate(value, followup !== undefined ? "followup" : "scheduled");
+}
+
+/** Applies --goal / --waiting / --est (each accepting "none") to a tag list. */
+function applyMetaFlags(store: TaskStore, tags: string[], args: ReturnType<typeof parseArgs>): string[] {
+  let out = tags;
+  const goal = args.one("goal");
+  if (goal !== undefined) out = goalTags(out, goal === "none" ? null : resolveGoal(store.goals(), goal).name);
+  const waiting = args.one("waiting");
+  if (waiting !== undefined) out = waitingTags(out, waiting === "none" ? null : waiting);
+  const est = args.one("est");
+  if (est !== undefined) out = estimateTags(out, est === "none" ? null : est);
+  return out;
+}
+
+function readStdin(): string {
+  if (process.stdin.isTTY) return ""; // nothing piped in; don't block waiting for a keyboard
+  try {
+    return readFileSync(0, "utf8");
+  } catch {
+    return "";
+  }
+}
 
 /** Rejects titles carrying CLI output (`[area:Work]`) or a flag that didn't parse (`--project`). */
 function requireCleanTitle(title: string): string {
@@ -24,26 +63,6 @@ function requireCleanTitle(title: string): string {
 
 function formatIssue(i: Issue): string {
   return `  [${i.kind}] ${i.file}: ${i.message}${i.fix ? `\n      fix: ${i.fix}` : "\n      (needs a manual fix)"}`;
-}
-
-function toJson(t: Task) {
-  return {
-    id: t.id,
-    title: t.title,
-    done: t.done,
-    doneDate: t.doneDate,
-    priority: t.priority,
-    scheduled: t.scheduled,
-    due: t.due,
-    start: t.start,
-    created: t.created,
-    recurrence: t.recurrence,
-    tags: t.tags,
-    project: t.project,
-    area: t.area,
-    someday: t.someday,
-    notes: t.notes,
-  };
 }
 
 async function ask(rl: ReturnType<typeof createInterface>, question: string, fallback = ""): Promise<string> {
@@ -87,10 +106,16 @@ Usage:
     --tag <tag>                       Repeatable, e.g. --tag gmail --tag urgent
     --notes <text>                    Repeatable
     --someday                         File into Someday.md instead
+    --goal <goal>                     Link to a goal in Goals.md (#goal/…)
+    --focus                           Make it one of today's top ${MAX_FOCUS}
+    --waiting <person>                Waiting on someone (#waiting/…)
+    --followup <YYYY-MM-DD>           When to chase it (alias for --scheduled)
+    --est <30m|2h|1h30m>              Effort estimate (#est/…)
 
   task-app list [section] [--json]  Sections: inbox, today, overdue, upcoming,
-                                     anytime, someday, logbook, all,
-                                     project:<name>, area:<name>. Default: today.
+                                     anytime, someday, logbook, all, focus,
+                                     waiting, project:<name>, area:<name>,
+                                     goal:<name>. Default: today.
 
   task-app complete <id>            Mark a task done.
   task-app uncomplete <id>          Undo that.
@@ -98,6 +123,24 @@ Usage:
   task-app edit <id> [flags]        Update fields in place (doesn't move file).
     --title <text> --due <date|none> --scheduled <date|none> --start <date|none>
     --priority <level|none> --recurrence <text|none> --tag <tag> (repeatable, adds)
+    --goal <goal|none> --waiting <person|none> --followup <date|none> --est <dur|none>
+
+  task-app focus [<id>...] [--force] Set exactly these as today's top ${MAX_FOCUS} (#focus).
+    --add <id> | --remove <id> | --clear   No args: show current focus.
+
+  task-app goals [--json]           Goals from Goals.md with open/focus/done counts.
+  task-app project <name> [--goal <goal>|none] [--area <area>|none]
+                                     Show a project, or set its frontmatter.
+
+  task-app review [--json] [--date D]  Everything a plan or review needs in one
+                                     read: focus, overdue, follow-ups, stale
+                                     items, goal and project health, estimates.
+
+  task-app note show [--date D] [--section S] [--json]
+  task-app note write --section S [--date D] [--text "..."]  (or body on stdin)
+                                     Read/replace a "## S" section of the daily
+                                     note <vault>/YYYY-MM-DD.md. Other content
+                                     in the note is never touched.
 
   task-app move <id> [flags]        Move a task to a different location.
     --project <name> | --area <name> | --someday | --inbox
@@ -129,20 +172,27 @@ async function main(): Promise<void> {
   if (cmd === "add") {
     const args = parseArgs(rest);
     if (!args.positional.length) throw new Error("Usage: task-app add <title...> [flags]");
+    const store = new TaskStore(config);
 
     const input: NewTaskInput = {
       title: requireCleanTitle(args.positional.join(" ")),
       project: args.one("project") ?? null,
       area: args.one("area") ?? null,
       due: nullableDate(args.one("due"), "due") ?? null,
-      scheduled: nullableDate(args.one("scheduled"), "scheduled") ?? null,
+      scheduled: scheduledFlag(args) ?? null,
       start: nullableDate(args.one("start"), "start") ?? null,
       priority: parsePriority(args.one("priority")) ?? null,
       recurrence: args.one("recurrence") ?? null,
-      tags: args.many("tag").map(normalizeTag),
+      tags: applyMetaFlags(store, args.many("tag").map(normalizeTag), args),
       notes: args.many("notes"),
       someday: args.bool("someday"),
     };
+    if (args.bool("focus")) {
+      if (store.focus().length >= MAX_FOCUS && !args.bool("force")) {
+        throw new Error(`Already ${store.focus().length} focus tasks (cap ${MAX_FOCUS}). Use "task-app focus" to swap one out, or pass --force.`);
+      }
+      input.tags = focusTags(input.tags ?? [], true);
+    }
 
     if (!input.due && !input.scheduled && !input.start) {
       const guess = quickParse(input.title);
@@ -152,7 +202,6 @@ async function main(): Promise<void> {
       }
     }
 
-    const store = new TaskStore(config);
     const task = store.add(input);
     console.log(`Added: ${formatTask(task)}`);
     return;
@@ -172,12 +221,18 @@ async function main(): Promise<void> {
     else if (section === "someday") tasks = store.someday();
     else if (section === "logbook") tasks = store.logbook();
     else if (section === "all") tasks = store.all();
+    else if (section === "focus") tasks = store.focus();
+    else if (section === "waiting") tasks = store.waiting();
+    else if (section.startsWith("goal:")) {
+      const goal = resolveGoal(store.goals(), section.slice("goal:".length));
+      tasks = store.all().filter((t) => !t.done && store.goalOf(t) === goal.name);
+    }
     else if (section.startsWith("project:")) tasks = store.byProject(section.slice("project:".length));
     else if (section.startsWith("area:")) tasks = store.byArea(section.slice("area:".length));
     else throw new Error(`Unknown section "${section}". See "task-app help".`);
 
     if (args.bool("json")) {
-      console.log(JSON.stringify(tasks.map(toJson), null, 2));
+      console.log(JSON.stringify(tasks.map((t) => taskJson(t, store)), null, 2));
     } else if (!tasks.length) {
       console.log("(nothing here)");
     } else {
@@ -218,7 +273,7 @@ async function main(): Promise<void> {
     if (args.one("title") !== undefined) patch.title = requireCleanTitle(args.one("title")!);
     const due = nullableDate(args.one("due"), "due");
     if (due !== undefined) patch.due = due;
-    const scheduled = nullableDate(args.one("scheduled"), "scheduled");
+    const scheduled = scheduledFlag(args);
     if (scheduled !== undefined) patch.scheduled = scheduled;
     const start = nullableDate(args.one("start"), "start");
     if (start !== undefined) patch.start = start;
@@ -228,9 +283,8 @@ async function main(): Promise<void> {
       const r = args.one("recurrence")!;
       patch.recurrence = r === "none" ? null : r;
     }
-    if (args.many("tag").length) {
-      patch.tags = [...existing.tags, ...args.many("tag").map(normalizeTag)];
-    }
+    const tags = applyMetaFlags(store, [...existing.tags, ...args.many("tag").map(normalizeTag)], args);
+    if (tags.join(" ") !== existing.tags.join(" ")) patch.tags = tags;
 
     const task = store.edit(id, patch);
     console.log(`Updated: ${formatTask(task!)}`);
@@ -246,6 +300,121 @@ async function main(): Promise<void> {
       for (const t of moved) console.log(`  ${formatTask(t)}`);
     }
     return;
+  }
+
+  if (cmd === "focus") {
+    const args = parseArgs(rest);
+    const store = new TaskStore(config);
+    let focus: Task[];
+    if (args.bool("clear")) focus = store.setFocus([]);
+    else if (args.many("add").length) focus = store.setFocus([...store.focus().map((t) => t.id), ...args.many("add")], args.bool("force"));
+    else if (args.many("remove").length) focus = store.setFocus(store.focus().map((t) => t.id).filter((id) => !args.many("remove").includes(id)));
+    else if (args.positional.length) focus = store.setFocus(args.positional, args.bool("force"));
+    else focus = store.focus();
+
+    if (args.bool("json")) return console.log(JSON.stringify(focus.map((t) => taskJson(t, store)), null, 2));
+    if (!focus.length) return console.log("(no focus tasks)");
+    focus.forEach((t, i) => console.log(`${i + 1}. ${formatTask(t)}${store.goalOf(t) ? `  → ${store.goalOf(t)}` : ""}`));
+    return;
+  }
+
+  if (cmd === "goals") {
+    const args = parseArgs(rest);
+    const store = new TaskStore(config);
+    const { goals, horizon, daysToHorizon } = buildReview(config, store);
+    if (args.bool("json")) return console.log(JSON.stringify({ horizon, daysToHorizon, goals }, null, 2));
+    if (!goals.length) return console.log(`No goals yet. Add "## <Goal>" headings to ${config.tasksDir}/Goals.md.`);
+    if (horizon) console.log(`Horizon: ${horizon} (${daysToHorizon} days)\n`);
+    for (const g of goals) {
+      console.log(`${g.name} — ${g.open} open, ${g.focusToday} in focus, ${g.doneLast7} done in 7 days${g.noActiveTask ? "  ⚠ nothing open" : ""}`);
+      if (g.projects.length) console.log(`  projects: ${g.projects.join(", ")}`);
+    }
+    return;
+  }
+
+  if (cmd === "project") {
+    const args = parseArgs(rest);
+    const name = args.positional.join(" ");
+    if (!name) throw new Error("Usage: task-app project <name> [--goal <goal>|none] [--area <area>|none]");
+    const store = new TaskStore(config);
+    if (!store.projects().includes(name)) {
+      throw new Error(`No project named "${name}". Projects: ${store.projects().map((p) => `"${p}"`).join(", ")}.`);
+    }
+    const goal = args.one("goal");
+    const area = args.one("area");
+    if (goal !== undefined || area !== undefined) {
+      updateProjectMeta(config, name, {
+        goal: goal === undefined ? undefined : goal === "none" ? null : resolveGoal(store.goals(), goal).name,
+        area: area === undefined ? undefined : area === "none" ? null : area,
+      });
+      store.refresh();
+    }
+    const tasks = store.byProject(name);
+    console.log(`${name}${store.projectGoal(name) ? `  → goal: ${store.projectGoal(name)}` : "  (no goal)"}`);
+    for (const t of tasks) console.log(`  ${formatTask(t)}`);
+    return;
+  }
+
+  if (cmd === "review") {
+    const args = parseArgs(rest);
+    const date = nullableDate(args.one("date"), "date") ?? todayStr();
+    const store = new TaskStore(config);
+    const review = buildReview(config, store, date);
+    if (args.bool("json")) return console.log(JSON.stringify(review, null, 2));
+
+    const c = review.counts;
+    console.log(`${review.date}: ${c.open} open · ${c.today} today · ${c.overdue} overdue · ${c.inbox} inbox · ${c.waiting} waiting · ${c.doneLast7} done in 7 days`);
+    const block = (label: string, items: { id: string; title: string }[]) => {
+      if (!items.length) return;
+      console.log(`\n${label}:`);
+      for (const t of items) console.log(`  - ${t.title} (${t.id})`);
+    };
+    block("Focus", review.focus);
+    block("Overdue", review.overdue);
+    block("Due within a week", review.dueSoon);
+    block("Follow-ups due", review.waiting.followUpDue);
+    block("Waiting with no follow-up date", review.waiting.noFollowUpDate);
+    block("Stale in Inbox", review.inbox.filter((t) => t.stale));
+    const idle = review.goals.filter((g) => g.noActiveTask).map((g) => g.name);
+    if (idle.length) console.log(`\nGoals with nothing open: ${idle.join(", ")}`);
+    const stuck = review.projects.filter((p) => p.noNextAction).map((p) => p.name);
+    if (stuck.length) console.log(`Projects with no next action: ${stuck.join(", ")}`);
+    if (review.estimates.todayMinutes) console.log(`\nEstimated today: ${formatDuration(review.estimates.todayMinutes)}`);
+    if (review.vaultIssues.length) console.log(`\n${review.vaultIssues.length} vault issue(s) — run "task-app doctor".`);
+    return;
+  }
+
+  if (cmd === "note") {
+    const [sub, ...noteArgs] = rest;
+    const args = parseArgs(noteArgs);
+    const date = nullableDate(args.one("date"), "date") ?? todayStr();
+    const section = args.one("section");
+
+    if (sub === "show") {
+      if (args.bool("json")) {
+        const exists = readNote(config, date) !== null;
+        const sections = Object.fromEntries(listSections(config, date).map((name) => [name, readSection(config, date, name)]));
+        return console.log(JSON.stringify({ date, path: dailyNotePath(config, date), exists, sections }, null, 2));
+      }
+      const text = section ? readSection(config, date, section) : readNote(config, date);
+      if (text === null) {
+        console.log(section ? `(no "## ${section}" section in ${date}.md)` : `(no daily note for ${date})`);
+        process.exitCode = 2;
+        return;
+      }
+      console.log(text);
+      return;
+    }
+
+    if (sub === "write") {
+      if (!section) throw new Error('Usage: task-app note write --section <Name> [--date YYYY-MM-DD] [--text "..."] (or pipe the body on stdin)');
+      const body = args.one("text") ?? readStdin();
+      if (!body.trim()) throw new Error("Nothing to write: pass --text or pipe the section body on stdin.");
+      const { path, created } = writeSection(config, date, section, body);
+      console.log(`${created ? "Created" : "Updated"} "## ${section}" in ${path}`);
+      return;
+    }
+    throw new Error('Usage: task-app note show|write ... (see "task-app help")');
   }
 
   if (cmd === "doctor") {

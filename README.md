@@ -8,8 +8,14 @@ any built-in API key.
   [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/) syntax (`📅` due, `⏳` scheduled,
   `⏫`/`🔼`/etc priority, `🔁` recurrence). No custom Obsidian plugin required — install the Tasks
   community plugin if you also want to query/filter tasks from inside notes.
-- **Views**: Inbox, Today, Upcoming, Anytime, Someday, Logbook, plus one list per Project
-  (`Tasks/Projects/*.md`) and Area (`Tasks/Areas/*.md`).
+- **Views**: Inbox, Today, Focus, Waiting, Upcoming, Anytime, Someday, Logbook, plus one list
+  per Project (`Tasks/Projects/*.md`) and Area (`Tasks/Areas/*.md`).
+- **What matters**: 90-day goals in `Tasks/Goals.md` that projects and tasks link to, a daily top 3
+  (`#focus`), waiting-on items with follow-up dates (`#waiting/<person>`), and effort estimates
+  (`#est/30m`). All of it is stored as plain tags or frontmatter.
+- **Daily note as the record**: `task-app note write` keeps `## Plan` / `## Shutdown` sections in
+  your Obsidian daily note, and `task-app review --json` gives a planner everything it needs in
+  one read.
 - **TUI**: browse and complete tasks, quick-add with a basic natural-date fallback (no API key
   needed at all for this).
 - **The smart stuff (capture, Gmail/Calendar/Slack sync, daily planning) is driven by talking to
@@ -134,10 +140,16 @@ task-app add <title...> [flags]   Add a task.
   --tag <tag>                       Repeatable, e.g. --tag gmail --tag urgent
   --notes <text>                    Repeatable
   --someday                         File into Someday.md instead
+  --goal <goal>                     Link to a goal in Goals.md (#goal/…)
+  --focus                           Make it one of today's top 3
+  --waiting <person>                Waiting on someone (#waiting/…)
+  --followup <YYYY-MM-DD>           When to chase it (alias for --scheduled)
+  --est <30m|2h|1h30m>              Effort estimate (#est/…)
 
 task-app list [section] [--json]  Sections: inbox, today, overdue, upcoming,
-                                   anytime, someday, logbook, all,
-                                   project:<name>, area:<name>. Default: today.
+                                   anytime, someday, logbook, all, focus,
+                                   waiting, project:<name>, area:<name>,
+                                   goal:<name>. Default: today.
 
 task-app complete <id>            Mark a task done.
 task-app uncomplete <id>          Undo that.
@@ -145,14 +157,35 @@ task-app uncomplete <id>          Undo that.
 task-app edit <id> [flags]        Update fields in place (doesn't move file).
   --title <text> --due <date|none> --scheduled <date|none> --start <date|none>
   --priority <level|none> --recurrence <text|none> --tag <tag> (repeatable, adds)
+  --goal <goal|none> --waiting <person|none> --followup <date|none> --est <dur|none>
+
+task-app focus [<id>...] [--force] Set exactly these as today's top 3 (#focus).
+  --add <id> | --remove <id> | --clear   No args: show current focus.
+
+task-app goals [--json]           Goals from Goals.md with open/focus/done counts.
+task-app project <name> [--goal <goal>|none] [--area <area>|none]
+                                   Show a project, or set its frontmatter.
+
+task-app review [--json] [--date D]  Everything a plan or review needs in one
+                                   read: focus, overdue, follow-ups, stale
+                                   items, goal and project health, estimates.
+
+task-app note show [--date D] [--section S] [--json]
+task-app note write --section S [--date D] [--text "..."]  (or body on stdin)
+                                   Read/replace a "## S" section of the daily
+                                   note <vault>/YYYY-MM-DD.md. Other content
+                                   in the note is never touched.
 
 task-app move <id> [flags]        Move a task to a different location.
   --project <name> | --area <name> | --someday | --inbox
 
-task-app sweep                    Relocate completed tasks into Logbook.md.
+task-app sweep                    Relocate completed tasks into Logbook.md,
+                                   tidying up Project/Area files. Safe to run
+                                   anytime — doesn't change what "logbook" shows.
 
-task-app doctor [--fix] [--json]  Check for duplicate ids, missing done dates,
-                                   junk in titles and misfiled Inbox items.
+task-app doctor [--fix] [--json]  Check task files for duplicate ids, missing
+                                   done dates, junk in titles and misfiled Inbox
+                                   items. Read-only unless --fix is given.
 
 task-app help                     Show this message.
 ```

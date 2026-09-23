@@ -6,10 +6,13 @@ import { TaskStore } from "../core/store.js";
 import type { Task } from "../core/task.js";
 import { quickParse } from "../core/quickParse.js";
 import { parseArgs, parseFullEdit, tokenize } from "../core/cliArgs.js";
+import { estimateMinutes, formatDuration, isFocus, waitingOn } from "../core/meta.js";
 
 type Section =
   | { kind: "inbox" }
   | { kind: "today" }
+  | { kind: "focus" }
+  | { kind: "waiting" }
   | { kind: "upcoming" }
   | { kind: "anytime" }
   | { kind: "someday" }
@@ -21,6 +24,8 @@ function sectionLabel(s: Section): string {
   switch (s.kind) {
     case "inbox": return "Inbox";
     case "today": return "Today";
+    case "focus": return "Focus";
+    case "waiting": return "Waiting";
     case "upcoming": return "Upcoming";
     case "anytime": return "Anytime";
     case "someday": return "Someday";
@@ -34,6 +39,8 @@ function tasksFor(store: TaskStore, s: Section): Task[] {
   switch (s.kind) {
     case "inbox": return store.inbox();
     case "today": return store.today();
+    case "focus": return store.focus();
+    case "waiting": return store.waiting();
     case "upcoming": return store.upcoming();
     case "anytime": return store.anytime();
     case "someday": return store.someday();
@@ -84,6 +91,8 @@ export function App({ config }: { config: AppConfig }) {
     () => [
       { kind: "inbox" },
       { kind: "today" },
+      { kind: "focus" },
+      { kind: "waiting" },
       { kind: "upcoming" },
       { kind: "anytime" },
       { kind: "someday" },
@@ -194,7 +203,9 @@ export function App({ config }: { config: AppConfig }) {
         {tasks.length === 0 && <Text dimColor>Nothing here.</Text>}
         {tasks.map((t, i) => (
           <Text key={t.id} inverse={i === cursor}>
-            {t.done ? "✅" : "⬜"} {priorityMark(t)} {t.title}
+            {t.done ? "✅" : "⬜"} {isFocus(t) ? "★" : priorityMark(t)} {t.title}
+            {waitingOn(t) !== null ? `  ⌛${waitingOn(t) || "waiting"}` : ""}
+            {estimateMinutes(t) ? `  ~${formatDuration(estimateMinutes(t)!)}` : ""}
             {dateLabel(t) ? `  (${dateLabel(t)})` : ""}
             {t.project ? `  [${t.project}]` : ""}
             {"  "}

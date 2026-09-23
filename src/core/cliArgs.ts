@@ -12,6 +12,9 @@ export interface ParsedArgs {
   many(name: string): string[];
 }
 
+/** Flags that never take a value, so `add --focus "Call Sam"` keeps "Call Sam" as the title. */
+export const BOOLEAN_FLAGS = new Set(["someday", "focus", "force", "json", "fix", "clear", "inbox"]);
+
 export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags: Record<string, string[]> = {};
@@ -20,7 +23,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (arg.startsWith("--")) {
       const name = arg.slice(2);
       const next = argv[i + 1];
-      if (next !== undefined && !next.startsWith("--")) {
+      if (!BOOLEAN_FLAGS.has(name) && next !== undefined && !next.startsWith("--")) {
         (flags[name] ??= []).push(next);
         i++;
       } else {

@@ -57,3 +57,27 @@ export function todayStr(): string {
     d.getDate(),
   ).padStart(2, "0")}`;
 }
+
+/** Tag-safe slug: "Pat O'Neil" → "pat-o-neil". */
+export function slugify(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Whole days from a to b (both YYYY-MM-DD). */
+export function daysBetween(a: string, b: string): number {
+  const toUtc = (s: string) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((toUtc(b) - toUtc(a)) / 86_400_000);
+}

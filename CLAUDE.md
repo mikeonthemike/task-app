@@ -20,13 +20,21 @@ Run `task-app help` if you need the exact flag syntax. Quick reference:
 task-app add "<title>" [--project P] [--area A] [--due YYYY-MM-DD] \
   [--scheduled YYYY-MM-DD] [--start YYYY-MM-DD] \
   [--priority highest|high|medium|low|lowest] [--recurrence "every week"] \
-  [--tag foo] [--tag bar] [--notes "..."] [--someday]
+  [--tag foo] [--tag bar] [--notes "..."] [--someday] \
+  [--goal G] [--focus] [--waiting "Person"] [--followup YYYY-MM-DD] [--est 30m]
 
-task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|project:<name>|area:<name>] [--json]
+task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|project:<name>|area:<name>|goal:<name>] [--json]
 task-app complete <id>
 task-app uncomplete <id>
-task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] [--recurrence R|none] [--tag T]
+task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] [--recurrence R|none] [--tag T] \
+  [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none]
 task-app move <id> [--project P | --area A | --someday | --inbox]
+task-app focus <id> [<id> <id>]   # sets EXACTLY these as today's top 3 (untags the rest); --add/--remove/--clear; no args = show
+task-app goals [--json]           # goals + open/focus/done-in-7-days counts
+task-app project <name> [--goal G|none] [--area A|none]   # show a project / set its frontmatter
+task-app review [--json] [--date D]   # one read of everything a plan/review needs
+task-app note show [--date D] [--section S] [--json]
+task-app note write --section S [--date D] [--text "..."]  # or pipe the body on stdin
 task-app sweep    # relocates completed tasks into Logbook.md; safe to run anytime
 task-app doctor [--fix] [--json]  # health check: duplicate ids, missing ✅ dates, junk in titles, misfiled Inbox items
 ```
@@ -46,6 +54,43 @@ Project/area names must match an existing project/area exactly (case-sensitive) 
 you'll create a duplicate — run `task-app list all --json` first and check the
 `project`/`area` fields on existing tasks, or look at what's under
 `<vault>/Tasks/Projects/` and `<vault>/Tasks/Areas/`, before inventing a new one.
+
+## Goals, focus, waiting-on, estimates
+
+These are the "what matters" layer. All of it is stored as plain tags or frontmatter, so it
+survives Obsidian edits:
+
+- **Goals** are the user's ~90-day outcomes: one `## Heading` each in `<tasks>/Goals.md`, with
+  optional frontmatter `horizon:`. The user owns the wording, so edit that file only when
+  asked. A project links to a goal via its frontmatter (`task-app project CRM --goal CRM`),
+  and its tasks inherit it. A task outside a goal-linked project can link directly with
+  `--goal` (`#goal/<slug>`). `--goal` must match an existing goal, and the error lists the
+  valid ones.
+- **Focus** (`#focus`) marks today's top 3, and focus tasks always show in Today.
+  `task-app focus a b c` replaces the whole set in one call. Don't exceed 3 without the
+  user's say-so (`--force`).
+- **Waiting-on** (`--waiting "Morgan"`, stored as `#waiting/morgan`) is for delegated items
+  or ones blocked on someone. The follow-up date is the ⏳ scheduled date (`--followup` is an
+  alias), so the task shows up in Today on the day to chase it. Treat the legacy
+  `#waiting-on` tag as waiting on an unnamed person. When capturing a task where someone
+  else owes the user something, use `--waiting` rather than putting the name in the title,
+  and suggest a follow-up date.
+- **Estimates** (`--est 30m`, `#est/30m`) are used to check a plan against free calendar time.
+  If a focus task has no estimate, say you're guessing; don't invent one silently.
+
+`review --json` is the main input for planning and reviews. It holds focus, today, overdue,
+due-within-7-days, Inbox (with age/`stale`), waiting (`followUpDue` / `noFollowUpDate` /
+`later`), per-goal and per-project health (`noActiveTask`, `noNextAction`), `unlinked` and
+`stale` open tasks, estimate totals, the last 7 days' completions, and any `doctor` issues.
+
+## The daily note is the master record
+
+Each day's plan lives in the user's Obsidian daily note, `<vault>/YYYY-MM-DD.md` (or the
+`dailyNotesDir` set in the config). Only `task-app note write` touches it, and only the
+`## <Section>` it's given (`Plan`, `Shutdown`). The user's own notes in the file are never
+modified. Write plans as plain numbered or bulleted lists that reference task ids like
+`(abc123)`, **never `- [ ]` checkboxes**, because the Obsidian Tasks plugin would pick those up
+as duplicate tasks.
 
 ## Natural-language capture
 
@@ -80,12 +125,19 @@ auto-triage or silently reorganize the user's existing tasks.
 
 When asked for a daily plan (or if this runs as a scheduled morning task):
 
-1. `task-app list overdue --json` and `task-app list today --json`.
-2. Pull today's Calendar events with your Calendar connector.
-3. Write the briefing yourself, in chat (or wherever the scheduled task delivers
-   it) — there's no `task-app plan` command; you *are* the planning step. Keep it
-   short: call out anything overdue or at risk given calendar gaps, suggest a
-   realistic focus order, flag if the day is overloaded.
+1. `task-app review --json`, and `task-app note show --json` to see whether a Plan already
+   exists today (if it does, update it rather than starting over).
+2. Pull today's Calendar events with your Calendar connector and work out the free blocks.
+3. Pick 3 focus tasks that serve the goals, favouring anything overdue, due soon, or on a goal
+   with `noActiveTask`. Check their estimates against the free time and say if the day is
+   overloaded. Flag follow-ups that are due.
+4. In an interactive session, confirm the top 3 with the user, then `task-app focus <ids>`.
+   A scheduled run with no one to ask may set focus itself, and must say it did so in the Plan.
+5. Write the result with `task-app note write --section Plan` (body on stdin), and keep it
+   short: the top 3 with ids, goals and estimates; proposed focus blocks; follow-ups due;
+   anything at risk.
+6. Calendar focus blocks are **proposals only**. Create events only after the user
+   explicitly says yes, never from a scheduled run.
 
 ## Developing task-app
 
@@ -100,8 +152,10 @@ Rebuild after any source change, or the CLI keeps running the old code.
   Inbox.md              # unfiled captures
   Someday.md             # backlog, no date
   Logbook.md              # completed tasks, archived here by `task-app sweep`
+  Goals.md                # ## one heading per goal; frontmatter `horizon:`
   Areas/<Name>.md         # area-level tasks with no specific project
-  Projects/<Name>.md      # optional frontmatter: `area: <Area name>`
+  Projects/<Name>.md      # optional frontmatter: `area: <Area name>`, `goal: <Goal name>`
+<vault>/YYYY-MM-DD.md     # daily notes: task-app owns only its ## Plan / ## Shutdown sections
 ```
 
 A task line: `- [ ] Draft homepage copy 📅 2026-09-30 🔼 🆔 abc126` — the `🆔` field

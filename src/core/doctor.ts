@@ -26,7 +26,7 @@ interface Diagnosis extends Issue {
  * title like "document the --verbose option" is left alone.
  */
 const TITLE_JUNK_RE =
-  /\s*\[(?:project|area):[^\]]*\]|(?:^|\s)--(?:project|area|due|scheduled|start|priority|recurrence|tag|notes|someday|inbox|title)(?=\s|$)/gi;
+  /\s*\[(?:project|area):[^\]]*\]|(?:^|\s)--(?:project|area|due|scheduled|start|priority|recurrence|tag|notes|someday|inbox|title|goal|focus|waiting|followup|est|force)(?=\s|$)/gi;
 
 export function cleanTitle(title: string): string {
   return title.replace(TITLE_JUNK_RE, "").replace(/\s{2,}/g, " ").trim();

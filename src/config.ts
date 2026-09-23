@@ -7,6 +7,8 @@ export interface AppConfig {
   vaultPath: string;
   /** Folder inside the vault where task-app keeps its markdown files. */
   tasksDir: string;
+  /** Folder inside the vault holding YYYY-MM-DD.md daily notes. "" (the default) = vault root. */
+  dailyNotesDir?: string;
 }
 
 const CONFIG_DIR = join(homedir(), ".config", "task-app");

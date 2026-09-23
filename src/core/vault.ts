@@ -4,7 +4,7 @@ import matter from "gray-matter";
 import { nanoid } from "nanoid";
 import type { AppConfig } from "../config.js";
 import type { NewTaskInput, Priority, Task } from "./task.js";
-import { todayStr } from "./task.js";
+import { slugify, todayStr } from "./task.js";
 
 const PRIORITY_TO_EMOJI: Record<Exclude<Priority, null>, string> = {
   highest: "🔺",
@@ -425,7 +425,12 @@ export function sweepCompletedTasks(config: AppConfig): Task[] {
   for (const original of [...toMove].sort((a, b) => (a.doneDate ?? "").localeCompare(b.doneDate ?? ""))) {
     // Once relocated to Logbook.md, project/area can no longer be derived from file
     // location — serializing for the Logbook bakes them in as tags so history isn't lost.
-    const t: Task = { ...original, location: { file: logbookPath, lineIndex: -1 } };
+    // A project's goal comes from its frontmatter, so bake that in too — metrics over the
+    // Logbook then survive the project being relinked or deleted.
+    const tags = [...original.tags];
+    const goal = original.project ? readFrontmatter(join(tasksRoot, "Projects", `${original.project}.md`))?.goal : null;
+    if (goal && !tags.some((tag) => tag.startsWith("#goal/"))) tags.push(`#goal/${slugify(String(goal))}`);
+    const t: Task = { ...original, tags, location: { file: logbookPath, lineIndex: -1 } };
     const newIndex = upsertIntoFile(logbookPath, "Logbook", t);
     moved.push({ ...t, location: { file: logbookPath, lineIndex: newIndex } });
   }
