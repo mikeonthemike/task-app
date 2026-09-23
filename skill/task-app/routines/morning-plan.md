@@ -1,6 +1,6 @@
 # Routine: morning plan
 
-Goal: by ~08:30, today's daily note has a short `## Plan` that the user (and their Cowork
+Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, that the user (and their Cowork
 morning brief) can read in 30 seconds. **Propose only**: the user confirms the top 3 before
 anything is marked, and calendar blocks are never created without an explicit yes.
 
@@ -62,10 +62,19 @@ _Proposed 08:30. Reply "confirm" (or swap one) to set focus._
 ```
 
 Omit any empty block. If a Plan already exists (a re-run), rewrite it; don't append a second one.
+Meeting context goes in its own section (next step), not the Plan. At most, Watch can point to it
+("Prep for Jordan 14:30: see Meetings").
 
-## 4. Hand over
+## 4. Meeting context
 
-End the session with the same Top 3 in chat, then ask: *"Confirm these three, or swap any?
+Follow `meeting-prep.md` to write today's `## Meetings` section, reusing the calendar events and
+`review --json` you already have. Gmail and Slack searches are read-only, so they're fine
+unattended. If a Calendar fetch failed, skip this step and say so in one line.
+
+## 5. Hand over
+
+End the session with the same Top 3 in chat, plus one line per meeting that has a real `Raise`
+or `Before` item (no more). Then ask: *"Confirm these three, or swap any?
 I can also book the focus blocks."* When the user replies (this session or later):
 - confirm or swap → `task-app focus <id> <id> <id>`, then rewrite the Plan's first line to
   `_Confirmed HH:MM._`

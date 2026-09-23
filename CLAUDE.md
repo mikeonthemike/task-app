@@ -89,7 +89,7 @@ due-within-7-days, Inbox (with age/`stale`), waiting (`followUpDue` / `noFollowU
 
 Each day's plan lives in the user's Obsidian daily note, `<vault>/YYYY-MM-DD.md` (or the
 `dailyNotesDir` set in the config). Only `task-app note write` touches it, and only the
-`## <Section>` it's given (`Plan`, `Shutdown`). The user's own notes in the file are never
+`## <Section>` it's given (`Plan`, `Meetings`, `Shutdown`). The user's own notes in the file are never
 modified. Write plans as plain numbered or bulleted lists that reference task ids like
 `(abc123)`, **never `- [ ]` checkboxes**, because the Obsidian Tasks plugin would pick those up
 as duplicate tasks.
@@ -128,7 +128,7 @@ auto-triage or silently reorganize the user's existing tasks.
 The step-by-step routines live in `skill/task-app/routines/`. **Read the matching file and
 follow it**:
 
-- `morning-plan.md`: "plan my day", or the 08:30 weekday scheduled task
+- `morning-plan.md`: "plan my day", or the 08:30 weekday scheduled task (it includes `meeting-prep.md`)
 - `shutdown.md`: "wrap up", or the 16:30 Mon–Thu scheduled task
 - `weekly-review.md`: "weekly review", or the Friday 16:00 scheduled task (it includes Friday's shutdown)
 - `meeting-capture.md`: "process my notes", on demand only
@@ -159,7 +159,7 @@ Rebuild after any source change, or the CLI keeps running the old code.
   Goals.md                # ## one heading per goal; frontmatter `horizon:`
   Areas/<Name>.md         # area-level tasks with no specific project
   Projects/<Name>.md      # optional frontmatter: `area: <Area name>`, `goal: <Goal name>`
-<vault>/YYYY-MM-DD.md     # daily notes: task-app owns only its ## Plan / ## Shutdown sections
+<vault>/YYYY-MM-DD.md     # daily notes: task-app owns only its ## Plan / ## Meetings / ## Shutdown sections
 ```
 
 A task line: `- [ ] Draft homepage copy 📅 2026-09-30 🔼 🆔 abc126` — the `🆔` field

@@ -71,7 +71,7 @@ Pacific/Auckland). Project and area names must match existing ones exactly, so c
   propose a follow-up date.
 - **Estimates** (`--est 45m`) let a plan be checked against free calendar time.
 - **The daily note** (`<vault>/YYYY-MM-DD.md`) is the master record of the day. task-app owns only
-  its `## Plan`, `## Shutdown` and `## Weekly Review` sections, written with `note write`. Write
+  its `## Plan`, `## Meetings`, `## Shutdown` and `## Weekly Review` sections, written with `note write`. Write
   them as plain lists that reference task ids like `(abc123)`, **never `- [ ]` checkboxes**
   (Obsidian Tasks would treat those as duplicate tasks).
 
@@ -85,6 +85,10 @@ Each routine has its own file next to this one. Read the relevant file and follo
 | End of day, or "shut down" / "wrap up the day" | Evening shutdown | `routines/shutdown.md` |
 | Friday afternoon, or "weekly review" | Weekly review | `routines/weekly-review.md` |
 | "Process my notes", "capture actions from…" | Meeting-notes capture | `routines/meeting-capture.md` |
+| Part of the morning plan, or "add meeting prep to my note" | Meeting context (`## Meetings`) | `routines/meeting-prep.md` |
+
+A full brief on one meeting that isn't going into the note ("prep me for my 2pm") belongs to the
+standalone `meeting-prep` skill, not this one.
 
 For a quick "what's on my plate?", skip the full routine: `task-app review` (plain) plus
 today's calendar, answered in a few lines.
