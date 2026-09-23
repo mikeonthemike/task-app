@@ -1,0 +1,33 @@
+{
+  "name": "task-app",
+  "version": "0.1.0",
+  "description": "A Things-style personal task manager backed by your Obsidian vault, driven day-to-day by Claude Code (chat or a scheduled session) for capture, Gmail/Calendar/Slack sync, and daily planning.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "task-app": "./bin/task-app.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.tsx",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chrono-node": "^2.7.7",
+    "gray-matter": "^4.0.3",
+    "ink": "^5.0.1",
+    "ink-text-input": "^6.0.0",
+    "nanoid": "^5.0.9",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
