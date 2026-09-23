@@ -28,7 +28,14 @@ task-app uncomplete <id>
 task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] [--recurrence R|none] [--tag T]
 task-app move <id> [--project P | --area A | --someday | --inbox]
 task-app sweep    # relocates completed tasks into Logbook.md; safe to run anytime
+task-app doctor [--fix] [--json]  # health check: duplicate ids, missing ✅ dates, junk in titles, misfiled Inbox items
 ```
+
+If a command fails with "is no longer in …" or "appears N times", the vault changed
+underneath it or has a duplicate id. Run `task-app doctor` and show the user what it
+found before running `--fix`. `add`/`edit` reject titles that contain CLI output
+(`[area:Work]`) or a task-app flag (`--project`). That error means a flag was quoted into
+the title, so fix the command rather than stripping the text by hand.
 
 `list --json` is what you should use when you need to reason about existing tasks
 (dedup checks, building a plan, etc.) — it's structured and cheap on context
@@ -79,6 +86,12 @@ When asked for a daily plan (or if this runs as a scheduled morning task):
    it) — there's no `task-app plan` command; you *are* the planning step. Keep it
    short: call out anything overdue or at risk given calendar gaps, suggest a
    realistic focus order, flag if the day is overloaded.
+
+## Developing task-app
+
+`npm test` (node:test against throwaway temp vaults, never the real one) and
+`npm run build` (clean rebuild into `dist/`, which the linked `task-app` binary runs).
+Rebuild after any source change, or the CLI keeps running the old code.
 
 ## Vault layout
 

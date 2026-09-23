@@ -37,6 +37,7 @@ add back later — it's just not what's built right now.
 npm install
 npm run build
 npm link          # makes the `task-app` command available globally
+npm test          # runs against throwaway temp vaults, never your real one
 task-app init
 ```
 
@@ -149,6 +150,9 @@ task-app move <id> [flags]        Move a task to a different location.
   --project <name> | --area <name> | --someday | --inbox
 
 task-app sweep                    Relocate completed tasks into Logbook.md.
+
+task-app doctor [--fix] [--json]  Check for duplicate ids, missing done dates,
+                                   junk in titles and misfiled Inbox items.
 
 task-app help                     Show this message.
 ```

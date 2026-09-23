@@ -9,6 +9,22 @@ import { TaskStore } from "./core/store.js";
 import type { NewTaskInput, Task } from "./core/task.js";
 import { quickParse } from "./core/quickParse.js";
 import { formatTask, nullableDate, normalizeTag, parseArgs, parsePriority } from "./core/cliArgs.js";
+import { checkVault, cleanTitle, fixVault, type Issue } from "./core/doctor.js";
+
+/** Rejects titles carrying CLI output (`[area:Work]`) or a flag that didn't parse (`--project`). */
+function requireCleanTitle(title: string): string {
+  const cleaned = cleanTitle(title);
+  if (cleaned !== title.trim()) {
+    throw new Error(
+      `Title "${title}" contains CLI output or a task-app flag. Did you mean "${cleaned}" with the flag passed separately?`,
+    );
+  }
+  return cleaned;
+}
+
+function formatIssue(i: Issue): string {
+  return `  [${i.kind}] ${i.file}: ${i.message}${i.fix ? `\n      fix: ${i.fix}` : "\n      (needs a manual fix)"}`;
+}
 
 function toJson(t: Task) {
   return {
@@ -90,6 +106,10 @@ Usage:
                                      tidying up Project/Area files. Safe to run
                                      anytime — doesn't change what "logbook" shows.
 
+  task-app doctor [--fix] [--json]  Check task files for duplicate ids, missing
+                                     done dates, junk in titles and misfiled Inbox
+                                     items. Read-only unless --fix is given.
+
   task-app help                     Show this message.
 `);
 }
@@ -111,7 +131,7 @@ async function main(): Promise<void> {
     if (!args.positional.length) throw new Error("Usage: task-app add <title...> [flags]");
 
     const input: NewTaskInput = {
-      title: args.positional.join(" "),
+      title: requireCleanTitle(args.positional.join(" ")),
       project: args.one("project") ?? null,
       area: args.one("area") ?? null,
       due: nullableDate(args.one("due"), "due") ?? null,
@@ -195,7 +215,7 @@ async function main(): Promise<void> {
     if (!existing) throw new Error(`No task with id "${id}".`);
 
     const patch: Partial<Task> = {};
-    if (args.one("title") !== undefined) patch.title = args.one("title");
+    if (args.one("title") !== undefined) patch.title = requireCleanTitle(args.one("title")!);
     const due = nullableDate(args.one("due"), "due");
     if (due !== undefined) patch.due = due;
     const scheduled = nullableDate(args.one("scheduled"), "scheduled");
@@ -225,6 +245,28 @@ async function main(): Promise<void> {
       console.log(`Swept ${moved.length} completed task(s) into Logbook.md:`);
       for (const t of moved) console.log(`  ${formatTask(t)}`);
     }
+    return;
+  }
+
+  if (cmd === "doctor") {
+    const args = parseArgs(rest);
+    if (args.bool("fix")) {
+      const { fixed, remaining } = fixVault(config);
+      if (args.bool("json")) return console.log(JSON.stringify({ fixed, remaining }, null, 2));
+      console.log(fixed.length ? `Fixed ${fixed.length} issue(s):` : "Nothing to fix.");
+      for (const i of fixed) console.log(formatIssue(i));
+      if (remaining.length) {
+        console.log(`\n${remaining.length} issue(s) need a manual fix:`);
+        for (const i of remaining) console.log(formatIssue(i));
+      }
+      return;
+    }
+    const issues = checkVault(config);
+    if (args.bool("json")) return console.log(JSON.stringify(issues, null, 2));
+    if (!issues.length) return console.log("Vault looks healthy.");
+    console.log(`Found ${issues.length} issue(s):`);
+    for (const i of issues) console.log(formatIssue(i));
+    console.log(`\nRun "task-app doctor --fix" to apply the automatic fixes.`);
     return;
   }
 

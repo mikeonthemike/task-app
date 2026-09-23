@@ -98,8 +98,7 @@ export class TaskStore {
   uncomplete(id: string): Task | undefined {
     const task = this.byId(id);
     if (!task) return undefined;
-    const updated: Task = { ...task, done: false, doneDate: null };
-    updateTask(updated);
+    const updated = updateTask({ ...task, done: false, doneDate: null });
     this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
     return updated;
   }
@@ -107,8 +106,7 @@ export class TaskStore {
   reschedule(id: string, scheduled: string | null): Task | undefined {
     const task = this.byId(id);
     if (!task) return undefined;
-    const updated: Task = { ...task, scheduled };
-    updateTask(updated);
+    const updated = updateTask({ ...task, scheduled });
     this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
     return updated;
   }
@@ -117,8 +115,7 @@ export class TaskStore {
   edit(id: string, patch: Partial<Pick<Task, "title" | "due" | "scheduled" | "start" | "priority" | "recurrence" | "tags">>): Task | undefined {
     const task = this.byId(id);
     if (!task) return undefined;
-    const updated: Task = { ...task, ...patch };
-    updateTask(updated);
+    const updated = updateTask({ ...task, ...patch });
     this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
     return updated;
   }

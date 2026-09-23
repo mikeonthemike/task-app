@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, relative, sep } from "node:path";
 import matter from "gray-matter";
 import { nanoid } from "nanoid";
 import type { AppConfig } from "../config.js";
@@ -38,7 +38,17 @@ function slugToTitle(slug: string): string {
     .join(" ");
 }
 
-function titleToSlug(title: string): string {
+/**
+ * Writes via a temp file + rename so Obsidian (or a sync client) never observes a
+ * half-written file, and a crash mid-write can't truncate a task list.
+ */
+export function writeFileAtomic(filePath: string, content: string): void {
+  const tmp = `${filePath}.task-app-${process.pid}.tmp`;
+  writeFileSync(tmp, content, "utf8");
+  renameSync(tmp, filePath);
+}
+
+export function titleToSlug(title: string): string {
   return title.trim().toLowerCase().replace(/\s+/g, "-");
 }
 
@@ -65,8 +75,12 @@ function deriveProjectArea(
   const rel = relative(tasksRoot, filePath);
   const parts = rel.split(sep);
 
-  let project: string | null = projTag ? slugToTitle(projTag.slice("#project/".length)) : null;
-  let area: string | null = areaTagFromLine ? slugToTitle(areaTagFromLine.slice("#area/".length)) : null;
+  let project: string | null = projTag
+    ? nameForSlug(join(tasksRoot, "Projects"), projTag.slice("#project/".length))
+    : null;
+  let area: string | null = areaTagFromLine
+    ? nameForSlug(join(tasksRoot, "Areas"), areaTagFromLine.slice("#area/".length))
+    : null;
 
   if (!project && parts[0] === "Projects" && parts.length >= 2) {
     project = parts[parts.length - 1].replace(/\.md$/, "");
@@ -80,6 +94,26 @@ function deriveProjectArea(
     if (fm?.area) area = String(fm.area);
   }
   return { project, area };
+}
+
+/** Maps a tag slug back to the real project/area file name (`crm` → `CRM`), falling back to title case. */
+function nameForSlug(dir: string, slug: string): string {
+  const existing = existsSync(dir)
+    ? readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, ""))
+    : [];
+  return existing.find((name) => titleToSlug(name) === slug.toLowerCase()) ?? slugToTitle(slug);
+}
+
+/** The project/area a file's location implies on its own, without any tags on the line. */
+function impliedByFile(filePath: string): { project: string | null; area: string | null } {
+  const name = basename(filePath).replace(/\.md$/, "");
+  const parent = basename(dirname(filePath));
+  if (parent === "Projects") {
+    const fmArea = readFrontmatter(filePath)?.area;
+    return { project: name, area: fmArea ? String(fmArea) : null };
+  }
+  if (parent === "Areas") return { project: null, area: name };
+  return { project: null, area: null };
 }
 
 function readFrontmatter(filePath: string): Record<string, unknown> | null {
@@ -188,15 +222,29 @@ export function scanVault(config: AppConfig): Task[] {
       }
     }
 
-    if (idsWereAdded) writeFileSync(file, lines.join("\n"), "utf8");
+    if (idsWereAdded) writeFileAtomic(file, lines.join("\n"));
   }
   return tasks;
 }
 
+/**
+ * Serializes a task for the file in task.location.file. Project/area normally come from
+ * where the file lives, so they're kept out of task.tags — but when the file doesn't
+ * imply them (Inbox.md, Logbook.md), they're written back as #project/… / #area/… tags,
+ * otherwise rewriting such a line would silently drop its project/area.
+ */
 export function serializeTaskLine(task: Task): string {
   const parts: string[] = [`- [${task.done ? "x" : " "}] ${task.title}`];
 
-  for (const tag of task.tags) parts.push(tag);
+  const tags = [...task.tags];
+  const implied = impliedByFile(task.location.file);
+  if (task.project && task.project !== implied.project && !tags.some((t) => t.startsWith("#project/"))) {
+    tags.push(`#project/${titleToSlug(task.project)}`);
+  }
+  if (task.area && task.area !== implied.area && !tags.some((t) => t.startsWith("#area/"))) {
+    tags.push(`#area/${titleToSlug(task.area)}`);
+  }
+  for (const tag of tags) parts.push(tag);
   if (task.priority) parts.push(PRIORITY_TO_EMOJI[task.priority]);
   if (task.recurrence) parts.push(`🔁 ${task.recurrence}`);
   if (task.start) parts.push(`🛫 ${task.start}`);
@@ -254,7 +302,7 @@ function appendSerializedLine(filePath: string, defaultHeading: string, line: st
   lines.push("");
 
   mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, lines.join("\n"), "utf8");
+  writeFileAtomic(filePath, lines.join("\n"));
   return newIndex;
 }
 
@@ -288,26 +336,52 @@ export function appendTask(config: AppConfig, input: NewTaskInput, targetFile?: 
   return task;
 }
 
-/** Rewrites a task's own line in place (used for completing, rescheduling, editing). */
-export function updateTask(task: Task): void {
+function lineHasId(line: string | undefined, id: string): boolean {
+  if (line === undefined || !CHECKBOX_RE.test(line)) return false;
+  return ID_RE.exec(line)?.[1] === id;
+}
+
+/**
+ * Finds the task's current line index. A Task's stored lineIndex goes stale if the
+ * file changed since it was scanned (edited in Obsidian while the TUI is open, another
+ * command ran, etc.) — so trust it only if that line still carries the task's 🆔, and
+ * otherwise search the file by id. Refuses rather than guessing, so a stale index can
+ * never clobber some other task's line.
+ */
+function locateLine(task: Task, lines: string[]): number {
+  if (lineHasId(lines[task.location.lineIndex], task.id)) return task.location.lineIndex;
+  const matches = lines.flatMap((l, i) => (lineHasId(l, task.id) ? [i] : []));
+  if (matches.length === 1) return matches[0];
+  if (!matches.length) {
+    throw new Error(`Task ${task.id} ("${task.title}") is no longer in ${task.location.file} — re-run the command.`);
+  }
+  throw new Error(`Task id ${task.id} appears ${matches.length} times in ${task.location.file} — run "task-app doctor --fix".`);
+}
+
+/**
+ * Rewrites a task's own line in place (used for completing, rescheduling, editing).
+ * Pass `currentId` when the patch changes the task's id, so the old line can be found.
+ */
+export function updateTask(task: Task, currentId: string = task.id): Task {
   const lines = readFileSync(task.location.file, "utf8").split("\n");
-  lines[task.location.lineIndex] = serializeTaskLine(task);
-  writeFileSync(task.location.file, lines.join("\n"), "utf8");
+  const index = locateLine({ ...task, id: currentId }, lines);
+  lines[index] = serializeTaskLine(task);
+  writeFileAtomic(task.location.file, lines.join("\n"));
+  return { ...task, location: { ...task.location, lineIndex: index } };
 }
 
 export function completeTask(task: Task): Task {
-  const updated: Task = { ...task, done: true, doneDate: todayStr() };
-  updateTask(updated);
-  return updated;
+  return updateTask({ ...task, done: true, doneDate: todayStr() });
 }
 
 /** Removes a task's line (and its trailing note lines) from its file entirely. */
 export function deleteTaskLine(task: Task): void {
   const lines = readFileSync(task.location.file, "utf8").split("\n");
-  let end = task.location.lineIndex + 1;
+  const index = locateLine(task, lines);
+  let end = index + 1;
   while (end < lines.length && /^\s{2,}\S/.test(lines[end]) && !CHECKBOX_RE.test(lines[end])) end++;
-  lines.splice(task.location.lineIndex, end - task.location.lineIndex);
-  writeFileSync(task.location.file, lines.join("\n"), "utf8");
+  lines.splice(index, end - index);
+  writeFileAtomic(task.location.file, lines.join("\n"));
 }
 
 /** Moves a task to a different project/area/someday destination, preserving its id, dates, and notes. */
@@ -320,12 +394,17 @@ export function moveTask(
   const area = dest.area ?? null;
   const someday = dest.someday ?? false;
   const targetFile = resolveTargetFile(config, { title: task.title, project, area, someday });
-  const serialized = serializeTaskLine(task);
+  const moved: Task = { ...task, project, area, someday, location: { file: targetFile, lineIndex: -1 } };
+  const serialized = serializeTaskLine(moved);
 
-  deleteTaskLine(task);
+  // Delete first when moving within the same file, since the append would shift indexes.
+  if (targetFile === task.location.file) deleteTaskLine(task);
   const newIndex = appendSerializedLine(targetFile, project ?? area ?? "Inbox", serialized, task.notes);
+  // Otherwise append first: a crash in between leaves a duplicate that `doctor` can
+  // merge, never a lost task.
+  if (targetFile !== task.location.file) deleteTaskLine(task);
 
-  return { ...task, project, area, someday, location: { file: targetFile, lineIndex: newIndex } };
+  return { ...moved, location: { file: targetFile, lineIndex: newIndex } };
 }
 
 /**
@@ -338,6 +417,18 @@ export function sweepCompletedTasks(config: AppConfig): Task[] {
   const logbookPath = join(tasksRoot, "Logbook.md");
 
   const toMove = scanVault(config).filter((t) => t.done && t.location.file !== logbookPath);
+
+  // Write into the Logbook first, then delete the originals — a crash in between
+  // leaves a duplicate (which the upsert below and `doctor` both handle), never a
+  // lost task.
+  const moved: Task[] = [];
+  for (const original of [...toMove].sort((a, b) => (a.doneDate ?? "").localeCompare(b.doneDate ?? ""))) {
+    // Once relocated to Logbook.md, project/area can no longer be derived from file
+    // location — serializing for the Logbook bakes them in as tags so history isn't lost.
+    const t: Task = { ...original, location: { file: logbookPath, lineIndex: -1 } };
+    const newIndex = upsertIntoFile(logbookPath, "Logbook", t);
+    moved.push({ ...t, location: { file: logbookPath, lineIndex: newIndex } });
+  }
 
   // Delete bottom-to-top per file so removing one line never invalidates another
   // still-pending deletion's lineIndex within the same file.
@@ -352,24 +443,25 @@ export function sweepCompletedTasks(config: AppConfig): Task[] {
       deleteTaskLine(t);
     }
   }
-
-  const moved: Task[] = [];
-  for (const original of toMove.sort((a, b) => (a.doneDate ?? "").localeCompare(b.doneDate ?? ""))) {
-    // Once relocated to Logbook.md, project/area can no longer be derived from file
-    // location — bake them in as tags so history isn't lost.
-    const tags = [...original.tags];
-    if (original.project && !tags.some((tag) => tag.startsWith("#project/"))) {
-      tags.push(`#project/${titleToSlug(original.project)}`);
-    }
-    if (original.area && !tags.some((tag) => tag.startsWith("#area/"))) {
-      tags.push(`#area/${titleToSlug(original.area)}`);
-    }
-    const t = { ...original, tags };
-
-    const newIndex = appendSerializedLine(logbookPath, "Logbook", serializeTaskLine(t), t.notes);
-    moved.push({ ...t, location: { file: logbookPath, lineIndex: newIndex } });
-  }
   return moved;
+}
+
+/**
+ * Appends a task to a file — unless a line with the same 🆔 is already there (e.g. a
+ * previous interrupted sweep), in which case that line is replaced instead. This is
+ * what makes sweeping idempotent. Returns the task's line index.
+ */
+function upsertIntoFile(filePath: string, defaultHeading: string, task: Task): number {
+  if (existsSync(filePath)) {
+    const lines = readFileSync(filePath, "utf8").split("\n");
+    const index = lines.findIndex((l) => lineHasId(l, task.id));
+    if (index !== -1) {
+      lines[index] = serializeTaskLine(task);
+      writeFileAtomic(filePath, lines.join("\n"));
+      return index;
+    }
+  }
+  return appendSerializedLine(filePath, defaultHeading, serializeTaskLine(task), task.notes);
 }
 
 export function listProjectFiles(config: AppConfig): string[] {
