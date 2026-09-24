@@ -42,6 +42,16 @@ describe("parsing and serializing", () => {
     assert.equal(first.id, second.id);
     assert.match(read("Inbox.md"), new RegExp(`🆔 ${first.id}`));
   });
+
+  test("a read-only scan leaves an id-less line untouched and flags it", () => {
+    write("Inbox.md", "# Inbox\n\n- [ ] Buy mi\n");
+    const [t] = scanVault(config, { persistIds: false });
+    assert.equal(t.idPending, true);
+    assert.equal(scanVault(config, { persistIds: false })[0].id, t.id, "temporary id is stable across scans");
+    assert.equal(read("Inbox.md"), "# Inbox\n\n- [ ] Buy mi\n");
+    const [persisted] = scanVault(config);
+    assert.equal(persisted.idPending, undefined);
+  });
 });
 
 describe("project/area carried by tags", () => {

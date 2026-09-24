@@ -20,6 +20,8 @@ export interface Task {
   area: string | null;
   someday: boolean;
   notes: string[]; // indented lines directly following the task line
+  /** Set only by a scan with persistIds: false, when the line has no 🆔 yet and `id` is temporary. */
+  idPending?: boolean;
   /** Where this task physically lives, so edits can be written back. */
   location: {
     file: string; // absolute path

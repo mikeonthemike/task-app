@@ -4,3 +4,4 @@ dist/
 *.log
 .DS_Store
 task-app-skill.zip
+desktop/out/

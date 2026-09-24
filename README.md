@@ -67,6 +67,30 @@ reference.
 
 Every task line also shows its id in brackets, e.g. `[cc7xg7sv]` — that's what `task-app edit/move/complete` take on the command line.
 
+### Menu-bar widget (macOS)
+
+`desktop/` is a small Electron app that sits in the menu bar:
+
+- **Popover** (click the ☑ icon): today's top 3, the `## Plan` from your daily note, waiting-on
+  follow-ups that are due, the rest of Today (overdue first), and what you've done today. Tick a
+  circle to complete a task; click a title to open its file in Obsidian.
+- **Quick capture** (⌃⌥Space anywhere): one line into the Inbox, with the same basic date
+  pickup as the TUI ("call the dentist tomorrow").
+- **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the
+  popover or the icon's right-click menu, and drag it wherever you like.
+
+The widget only *shows* your top 3; setting them is still Claude's proposal plus your yes. It
+reads and writes the vault through the same `src/core` code as the CLI and rescans when files
+change. Those rescans never write, so a task you're mid-typing in Obsidian doesn't get an id
+appended under your cursor. Ids are only saved when you act on a task in the widget.
+
+```bash
+cd desktop && npm install && cd ..
+npm run widget     # builds and launches it
+```
+
+It isn't packaged into a `.app` yet, so "Open at login" is hidden until it is.
+
 ### Using it with Claude Code
 
 Open a Claude Code session in this folder (or any folder — the CLI works from anywhere once

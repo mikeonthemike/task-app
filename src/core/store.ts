@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config.js";
 import { nanoid } from "nanoid";
 import { nextOccurrence } from "./recurrence.js";
-import { appendTask, completeTask, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
+import { appendTask, type ScanOptions, completeTask, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
 import type { NewTaskInput, Task } from "./task.js";
 import { isPastOrToday, isToday, todayStr } from "./task.js";
 import { type Goal, type GoalsFile, loadGoals, readProjectMeta } from "./goals.js";
@@ -12,12 +12,15 @@ export class TaskStore {
   private goalsFile: GoalsFile = { horizon: null, goals: [] };
   private projectGoals = new Map<string, string | null>();
 
-  constructor(private config: AppConfig) {
+  constructor(
+    private config: AppConfig,
+    private scanOptions: ScanOptions = {},
+  ) {
     this.refresh();
   }
 
-  refresh(): void {
-    this.tasks = scanVault(this.config);
+  refresh(options: ScanOptions = this.scanOptions): void {
+    this.tasks = scanVault(this.config, options);
     this.goalsFile = loadGoals(this.config);
     this.projectGoals.clear();
   }
