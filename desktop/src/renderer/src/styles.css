@@ -153,6 +153,23 @@ summary {
   color: var(--muted);
 }
 
+.badge {
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pill .badge {
+  flex: none;
+  margin-left: 6px;
+}
+
 .count {
   font-weight: 500;
   margin-left: 2px;

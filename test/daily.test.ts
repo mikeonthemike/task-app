@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
 import { parseArgs } from "../src/core/cliArgs.js";
-import { readSection, writeSection } from "../src/core/dailyNote.js";
+import { proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
 import { loadGoals, resolveGoal, updateProjectMeta } from "../src/core/goals.js";
 import { estimateTags, focusTags, parseDuration, waitingOn, waitingTags } from "../src/core/meta.js";
 import { buildReview } from "../src/core/review.js";
@@ -232,5 +232,23 @@ describe("CLI end to end", () => {
 
   test("unknown goal is rejected with the valid names", () => {
     assert.throws(() => cli(["add", "X", "--goal", "Nope"]), /Unknown goal "Nope"/);
+  });
+});
+
+describe("proposed top 3", () => {
+  test("reads ids from the morning plan's numbered Top 3, ignoring other lists", () => {
+    const plan = [
+      "_Proposed 08:30. Reply \"confirm\" (or swap one) to set focus._",
+      "",
+      "**Top 3** (none have estimates, so these times are guesses)",
+      "1. Agree WOW with Sam, including R&R on CRM (k3Jd9sQa) · CRM · ~30m",
+      "2. Decide on status update (r2tn8wkc) · Status Reporting (not linked yet) · ~1h",
+      "3. GitHub access (Pq7x-Lm2) · ~5m",
+      "",
+      "**Focus blocks (proposed, not booked)**",
+      "1. 10:30–11:30 → 2",
+    ].join("\n");
+    assert.deepEqual(proposedTop3(plan), [["k3Jd9sQa"], ["r2tn8wkc"], ["Pq7x-Lm2"]]);
+    assert.deepEqual(proposedTop3("1. No heading (abcd1234)"), []);
   });
 });

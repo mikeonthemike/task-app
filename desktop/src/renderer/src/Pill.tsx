@@ -7,7 +7,9 @@ export function Pill() {
   const snap = useSnapshot();
   const [index, setIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const focus = snap?.focus ?? [];
+  // Before the user confirms, show the plan's proposal rather than an empty pill.
+  const isProposal = !!snap && !snap.focus.length && snap.proposed.length > 0;
+  const focus = (isProposal ? snap?.proposed : snap?.focus) ?? [];
 
   // Completing a task shrinks the list; stay in range.
   useEffect(() => {
@@ -18,6 +20,7 @@ export function Pill() {
   const task = focus[index];
   return (
     <div className="pill" title={error ?? undefined}>
+      {task && isProposal && <span className="badge" title="Proposed in today's plan, not confirmed yet">Proposed</span>}
       {task ? (
         <ul>
           <TaskRow key={task.id} task={task} today={snap.date} onError={setError} compact />
@@ -26,7 +29,7 @@ export function Pill() {
         <span className="empty">{snap.error ? "Can't read the vault" : "No top 3 yet"}</span>
       )}
       {focus.length > 1 && (
-        <button className="step" title="Next focus task" onClick={() => setIndex((index + 1) % focus.length)}>
+        <button className="step" title={isProposal ? "Next proposed task" : "Next focus task"} onClick={() => setIndex((index + 1) % focus.length)}>
           {index + 1}/{focus.length}
         </button>
       )}

@@ -96,3 +96,24 @@ export function writeSection(config: AppConfig, date: string, name: string, body
   writeFileAtomic(path, lines.join("\n"));
   return { path, created: false };
 }
+
+/**
+ * The task ids proposed under `**Top 3**` in a `## Plan` body, in order. Each numbered item
+ * contributes its parenthesised id-like tokens ("(k3Jd9sQa)"), since a title can carry other
+ * parentheses; the caller keeps the first that is a real task.
+ */
+export function proposedTop3(plan: string): string[][] {
+  const lines = plan.split("\n");
+  const start = lines.findIndex((l) => /^\*\*Top 3\b/i.test(l.trim()));
+  if (start === -1) return [];
+  const items: string[][] = [];
+  for (const line of lines.slice(start + 1)) {
+    const m = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    if (!m) {
+      if (items.length) break;
+      continue;
+    }
+    items.push([...m[1].matchAll(/\(([A-Za-z0-9_-]{4,})\)/g)].map((x) => x[1]));
+  }
+  return items;
+}

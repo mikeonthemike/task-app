@@ -86,7 +86,7 @@ appended under your cursor. Ids are only saved when you act on a task in the wid
 
 ```bash
 cd desktop && npm install && cd ..
-npm run widget     # builds and launches it
+npm run widget     # builds and launches it (electron-vite preview rebuilds first)
 ```
 
 It isn't packaged into a `.app` yet, so "Open at login" is hidden until it is.

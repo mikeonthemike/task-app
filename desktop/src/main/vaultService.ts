@@ -1,7 +1,7 @@
 import { basename, dirname, join, relative } from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import { type AppConfig, loadConfig } from "../../../src/config.js";
-import { dailyNotePath, readSection } from "../../../src/core/dailyNote.js";
+import { dailyNotePath, proposedTop3, readSection } from "../../../src/core/dailyNote.js";
 import { taskJson } from "../../../src/core/json.js";
 import { quickParse } from "../../../src/core/quickParse.js";
 import { TaskStore } from "../../../src/core/store.js";
@@ -84,6 +84,7 @@ export class VaultService {
     const empty: Snapshot = {
       date: todayStr(),
       focus: [],
+      proposed: [],
       today: [],
       followUps: [],
       doneToday: [],
@@ -115,12 +116,14 @@ export class VaultService {
       };
     };
 
+    const plan = readSection(config, today, "Plan");
     const focus = store.focus().map(view);
+    const proposed = focus.length || !plan ? [] : this.resolveProposed(plan).map(view);
     const followUps = store
       .waiting()
       .filter((t) => t.scheduled && t.scheduled <= today)
       .map(view);
-    const shown = new Set([...focus, ...followUps].map((t) => t.id));
+    const shown = new Set([...focus, ...proposed, ...followUps].map((t) => t.id));
     const todayList = store
       .today()
       .filter((t) => !shown.has(t.id))
@@ -131,6 +134,7 @@ export class VaultService {
       ...empty,
       date: today,
       focus,
+      proposed,
       today: todayList,
       followUps,
       doneToday: store
@@ -138,8 +142,16 @@ export class VaultService {
         .filter((t) => t.done && t.doneDate === today)
         .map(view),
       inboxCount: store.inbox().length,
-      plan: readSection(config, today, "Plan"),
+      plan,
     };
+  }
+
+  /** Each proposed item's first id that is still an open task (done or deleted ones drop out). */
+  private resolveProposed(plan: string): Task[] {
+    return proposedTop3(plan).flatMap((ids) => {
+      const t = ids.map((id) => this.store!.byId(id)).find((x) => x && !x.done);
+      return t ? [t] : [];
+    });
   }
 
   complete(id: string): Result {
