@@ -62,6 +62,7 @@ reference.
 | `a` | quick-add a task (plain text; a natural-language date like "tomorrow" is picked up locally) |
 | `e` | edit the selected task — opens a pre-filled `--title ... --due ... --project ...` line (same flags as the CLI's `edit`/`move`); delete a flag to clear that field, `esc` to cancel |
 | `x` | sweep completed tasks into `Logbook.md` |
+| `c` | capture `## Actions` bullets from untouched notes into the Inbox (see `task-app capture`) |
 | `q` / `esc` | quit |
 
 Every task line also shows its id in brackets, e.g. `[cc7xg7sv]` — that's what `task-app edit/move/complete` take on the command line.
@@ -96,6 +97,12 @@ The day runs on four routines that Claude follows, defined in
 
 The scheduled runs only *propose*. You reply in the run's session to confirm the top 3
 (`task-app focus`), book focus blocks in Calendar, or capture actions.
+
+Meeting-notes capture does real judgment — classifying each action as a task vs.
+waiting-on vs. skip, writing a clean title, deciding where it's filed. `task-app capture`
+(or `c` in the TUI) is a blunter, mechanical fallback: it adds every `## Actions` bullet
+from a note nothing's been captured from yet, verbatim, into the Inbox — a periodic
+safety net for notes nobody's engaged with at all, not a replacement for the routine.
 
 `skill/task-app/` is also the source for the `task-app` Claude skill, which makes all of this
 available from any Claude session on this Mac. After changing it, run `npm run skill:pack` and
@@ -201,6 +208,19 @@ task-app move <id> [flags]        Move a task to a different location.
 task-app sweep                    Relocate completed tasks into Logbook.md,
                                    tidying up Project/Area files. Safe to run
                                    anytime — doesn't change what "logbook" shows.
+
+task-app notes [--since D] [--content] [--json]
+                                   Your notes (meeting + daily) changed since D
+                                   (default today): ## Actions section and the
+                                   tasks already captured from each ("From: …").
+                                   Read-only. Skips task files and templates.
+
+task-app capture [--dry-run] [--json]
+                                   The sweep of the notes world: adds every
+                                   ## Actions bullet from an untouched note into
+                                   the Inbox, tagged "From: <name>.md". Only
+                                   touches a note with nothing captured from it
+                                   yet. --dry-run previews without writing.
 
 task-app doctor [--fix] [--json]  Check task files for duplicate ids, missing
                                    done dates, junk in titles and misfiled Inbox

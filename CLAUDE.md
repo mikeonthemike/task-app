@@ -37,6 +37,7 @@ task-app note show [--date D] [--section S] [--json]
 task-app note write --section S [--date D] [--text "..."]  # or pipe the body on stdin
 task-app note show --previous --section Shutdown   # latest earlier note with that section
 task-app notes [--since D] [--content] [--json]    # changed notes: ## Actions + tasks already captured from each
+task-app capture [--dry-run] [--json]   # the sweep of the notes world: adds every ## Actions bullet from an untouched note into the Inbox
 task-app sweep    # relocates completed tasks into Logbook.md; safe to run anytime
 task-app doctor [--fix] [--json]  # health check: duplicate ids, missing ✅ dates, junk in titles, misfiled Inbox items
 ```
@@ -137,6 +138,16 @@ Rules they all share: **propose, then act.** The user confirms the top 3 before
 `task-app focus` runs, and calendar focus blocks are created only after an explicit yes.
 Captures from notes are listed first and added on a yes. Unattended scheduled runs write their
 proposals to the daily note and chat, and change nothing else.
+
+`task-app capture` is a different, blunter tool than `meeting-capture.md` — it's the
+mechanical "sweep" of the notes world: every `## Actions` bullet from a note nothing's
+been captured from yet, added to the Inbox verbatim, no judgment applied (see its help
+text for the exact rule). Use `meeting-capture.md`'s routine, not this, whenever you're
+actually processing notes with the user — it classifies each item (task vs. waiting-on vs.
+skip), dedups by meaning, and writes better titles, none of which `capture` does. Reach for
+`task-app capture` (or suggest it) only as a periodic safety net for notes nobody's engaged
+with at all — e.g. if the user asks "did I miss capturing anything?" — and always run it
+with `--dry-run` first to show them what it would add before actually adding it.
 
 `skill/task-app/` is the source for the user's `task-app` account skill (uploaded in the
 Claude app under Settings → Skills). The copy under `~/Library/Application Support/Claude/…`

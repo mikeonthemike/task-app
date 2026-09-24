@@ -15,7 +15,7 @@ import { estimateTags, focusTags, formatDuration, goalTags, isFocus, MAX_FOCUS, 
 import { resolveGoal, updateProjectMeta } from "./core/goals.js";
 import { buildReview } from "./core/review.js";
 import { dailyNotePath, listSections, previousNoteDate, readNote, readSection, writeSection } from "./core/dailyNote.js";
-import { scanNotes } from "./core/notes.js";
+import { captureNotesToInbox, scanNotes } from "./core/notes.js";
 import { todayStr } from "./core/task.js";
 import { readFileSync } from "node:fs";
 
@@ -158,6 +158,15 @@ Usage:
                                      (default today): ## Actions section and the
                                      tasks already captured from each ("From: …").
                                      Read-only. Skips task files and templates.
+
+  task-app capture [--dry-run] [--json]
+                                     The sweep of the notes world: adds every
+                                     ## Actions bullet from a note into the Inbox,
+                                     tagged "From: <name>.md". Only touches a note
+                                     with nothing captured from it yet — once
+                                     anything has, later changes to that note are
+                                     "process my notes" work, not this. --dry-run
+                                     previews without writing anything.
 
   task-app doctor [--fix] [--json]  Check task files for duplicate ids, missing
                                      done dates, junk in titles and misfiled Inbox
@@ -452,6 +461,25 @@ async function main(): Promise<void> {
     for (const n of notes) {
       const actions = n.actions ? `${n.actions.split("\n").filter((l) => l.trim()).length} action line(s)` : "no ## Actions";
       console.log(`${n.modified}  ${n.path}  — ${actions}, ${n.captured.length} task(s) captured`);
+    }
+    return;
+  }
+
+  if (cmd === "capture") {
+    const args = parseArgs(rest);
+    const dryRun = args.bool("dry-run");
+    const store = new TaskStore(config);
+    const { added, skipped } = captureNotesToInbox(config, store, { dryRun });
+    if (args.bool("json")) return console.log(JSON.stringify({ added, skipped }, null, 2));
+
+    if (!added.length) console.log("Nothing to capture — no untouched note has a \"## Actions\" bullet.");
+    else {
+      console.log(`${dryRun ? "Would capture" : "Captured"} ${added.length} task(s) into Inbox:`);
+      for (const a of added) console.log(`  ${a.title}${dryRun ? "" : ` (${a.id})`} — from ${a.from}`);
+    }
+    if (skipped.length) {
+      console.log(`\nLeft alone (already engaged):`);
+      for (const s of skipped) console.log(`  ${s.name} — ${s.reason}`);
     }
     return;
   }
