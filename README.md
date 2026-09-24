@@ -73,7 +73,10 @@ Every task line also shows its id in brackets, e.g. `[cc7xg7sv]` — that's what
 
 - **Popover** (click the ☑ icon): today's top 3, the `## Plan` from your daily note, waiting-on
   follow-ups that are due, the rest of Today (overdue first), and what you've done today. Tick a
-  circle to complete a task; click a title to open its file in Obsidian.
+  circle to complete a task; click a title to open its file in Obsidian. Click the title
+  ("Today ▾") to switch lists, the same ones as the TUI (Inbox, Waiting, Upcoming, Anytime,
+  Someday, Logbook, each project and area), plus **All open**, which groups every open task
+  outside Someday by project/area. ←/→ steps through them, and Esc goes back to Today.
 - **Quick capture** (⌃⌥Space anywhere): one line into the Inbox, with the same basic date
   pickup as the TUI ("call the dentist tomorrow").
 - **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the

@@ -4,6 +4,7 @@ import type { Snapshot, TaskAppApi } from "../shared/api.js";
 // The renderer is sandboxed; this is the whole surface it gets.
 const api: TaskAppApi = {
   getSnapshot: () => ipcRenderer.invoke("snapshot:get"),
+  getList: (id) => ipcRenderer.invoke("list:get", id),
   onSnapshot: (cb) => {
     const listener = (_e: IpcRendererEvent, s: Snapshot) => cb(s);
     ipcRenderer.on("snapshot", listener);
