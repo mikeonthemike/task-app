@@ -8,6 +8,7 @@
   --urgent: #c9302c;
   --field: rgba(255, 255, 255, 0.6);
   --pill-bg: rgba(250, 250, 252, 0.92);
+  --menu-bg: #fbfbfd;
   --toast-bg: #1d1d1f;
   --toast-text: #fff;
   color-scheme: light dark;
@@ -24,6 +25,7 @@
     --urgent: #ff6961;
     --field: rgba(0, 0, 0, 0.25);
     --pill-bg: rgba(40, 40, 44, 0.92);
+    --menu-bg: #2c2c30;
     --toast-bg: #f5f5f7;
     --toast-text: #1d1d1f;
   }
@@ -92,6 +94,79 @@ h1 {
   font-size: 17px;
   font-weight: 650;
   letter-spacing: -0.01em;
+}
+
+.list-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: -4px;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+
+.list-title:hover {
+  background: var(--hover);
+}
+
+.list-title svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.list-title[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* The list picker covers the content area, like a menu. */
+.popover main {
+  position: relative;
+}
+
+.picker {
+  position: absolute;
+  inset: 0 8px auto;
+  max-height: 100%;
+  overflow-y: auto;
+  z-index: 1;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--faint);
+  background: var(--menu-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.picker button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.picker button:hover {
+  background: var(--hover);
+}
+
+.picker button.current {
+  background: var(--accent);
+  color: #fff;
+}
+
+.picker button.current .count {
+  color: inherit;
+}
+
+.picker .count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .sub {

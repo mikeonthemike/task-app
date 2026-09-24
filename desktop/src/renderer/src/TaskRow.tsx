@@ -8,9 +8,11 @@ interface Props {
   onError: (message: string) => void;
   /** Title only, for the pill. */
   compact?: boolean;
+  /** Leave the project/area out of the meta line (the list already says where it is). */
+  hideWhere?: boolean;
 }
 
-export function TaskRow({ task, today, onError, compact }: Props) {
+export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
   // Show the tick straight away; the vault write and rescan follow a moment later.
   const [pending, setPending] = useState(false);
   const checked = pending ? !task.done : task.done;
@@ -24,7 +26,7 @@ export function TaskRow({ task, today, onError, compact }: Props) {
     }
   }
 
-  const meta = compact ? [] : metaParts(task, today);
+  const meta = compact ? [] : metaParts(task, today, hideWhere);
   return (
     <li className={`row${checked ? " done" : ""}`}>
       <button className={`check${task.focus ? " focus" : ""}`} aria-label={checked ? "Mark not done" : "Mark done"} aria-pressed={checked} onClick={toggle}>

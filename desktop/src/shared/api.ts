@@ -14,6 +14,27 @@ export interface WidgetTask {
   done: boolean;
 }
 
+/** The TUI's lists, plus "all" (every open task outside Someday, grouped by project/area). */
+export type ListId =
+  | "today"
+  | "all"
+  | "inbox"
+  | "waiting"
+  | "upcoming"
+  | "anytime"
+  | "someday"
+  | "logbook"
+  | `project:${string}`
+  | `area:${string}`;
+
+export interface ListInfo {
+  id: ListId;
+  label: string;
+  kind: "view" | "project" | "area";
+  /** Open tasks in it; null where a count isn't meaningful (Logbook). */
+  count: number | null;
+}
+
 export interface Snapshot {
   date: string;
   /** Open #focus tasks: the top 3 Claude proposed and the user confirmed. Read-only here. */
@@ -31,6 +52,8 @@ export interface Snapshot {
   inboxCount: number;
   /** Body of today's `## Plan` in the daily note, if written. */
   plan: string | null;
+  /** Every list the popover can switch to, in TUI order. */
+  lists: ListInfo[];
   pillVisible: boolean;
   /** Set when the vault or config can't be read; everything else is empty then. */
   error: string | null;
@@ -48,6 +71,7 @@ export interface CapturePreview {
 
 export interface TaskAppApi {
   getSnapshot(): Promise<Snapshot>;
+  getList(id: ListId): Promise<WidgetTask[]>;
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   complete(id: string): Promise<Result>;
   uncomplete(id: string): Promise<Result>;

@@ -6,10 +6,20 @@ import { taskJson } from "../../../src/core/json.js";
 import { quickParse } from "../../../src/core/quickParse.js";
 import { TaskStore } from "../../../src/core/store.js";
 import { type Task, todayStr } from "../../../src/core/task.js";
-import type { CapturePreview, Result, Snapshot, WidgetTask } from "../shared/api.js";
+import type { CapturePreview, ListId, ListInfo, Result, Snapshot, WidgetTask } from "../shared/api.js";
 
 const RESCAN_DEBOUNCE_MS = 300;
 const DAILY_NOTE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
+const LOGBOOK_LIMIT = 100;
+
+/** Every open task outside Someday: Inbox first, then projects, then areas, each A–Z. */
+function allOpen(store: TaskStore): Task[] {
+  const rank = (t: Task) => (t.project ? 1 : t.area ? 2 : 0);
+  return store
+    .all()
+    .filter((t) => !t.done && !t.someday)
+    .sort((a, b) => rank(a) - rank(b) || (a.project ?? a.area ?? "").localeCompare(b.project ?? b.area ?? ""));
+}
 
 /**
  * Owns the one TaskStore the widget reads from. Rescans are read-only (persistIds: false) so
@@ -90,6 +100,7 @@ export class VaultService {
       doneToday: [],
       inboxCount: 0,
       plan: null,
+      lists: [],
       pillVisible,
       error: this.loadError,
     };
@@ -98,23 +109,7 @@ export class VaultService {
     if (!store || !config || this.loadError) return empty;
 
     const today = todayStr();
-    const view = (t: Task): WidgetTask => {
-      const j = taskJson(t, store);
-      return {
-        id: j.id,
-        title: j.title,
-        project: j.project,
-        area: j.area,
-        due: j.due,
-        scheduled: j.scheduled,
-        priority: j.priority,
-        estimateMinutes: j.estimateMinutes,
-        waitingOn: j.waitingOn,
-        focus: j.focus,
-        overdue: !!((j.due && j.due < today) || (j.scheduled && j.scheduled < today)),
-        done: j.done,
-      };
-    };
+    const view = (t: Task) => this.toWidget(t, today);
 
     const plan = readSection(config, today, "Plan");
     const focus = store.focus().map(view);
@@ -143,6 +138,79 @@ export class VaultService {
         .map(view),
       inboxCount: store.inbox().length,
       plan,
+      lists: this.lists(store),
+    };
+  }
+
+  /** Tasks for one popover list, in the same order the TUI shows them. */
+  list(id: ListId): WidgetTask[] {
+    const store = this.store;
+    if (!store || this.loadError) return [];
+    const today = todayStr();
+    return this.tasksFor(store, id).map((t) => this.toWidget(t, today));
+  }
+
+  private tasksFor(store: TaskStore, id: ListId): Task[] {
+    if (id.startsWith("project:")) return store.byProject(id.slice("project:".length));
+    if (id.startsWith("area:")) return store.byArea(id.slice("area:".length));
+    switch (id) {
+      case "today":
+        return store.today();
+      case "all":
+        return allOpen(store);
+      case "inbox":
+        return store.inbox();
+      case "waiting":
+        return store.waiting();
+      case "upcoming":
+        return store.upcoming();
+      case "anytime":
+        return store.anytime();
+      case "someday":
+        return store.someday();
+      case "logbook":
+        return store.logbook().slice(0, LOGBOOK_LIMIT);
+      default:
+        return [];
+    }
+  }
+
+  private lists(store: TaskStore): ListInfo[] {
+    const view = (id: ListId, label: string): ListInfo => ({
+      id,
+      label,
+      kind: "view",
+      count: id === "logbook" ? null : this.tasksFor(store, id).length,
+    });
+    return [
+      view("today", "Today"),
+      view("all", "All open"),
+      view("inbox", "Inbox"),
+      view("waiting", "Waiting"),
+      view("upcoming", "Upcoming"),
+      view("anytime", "Anytime"),
+      view("someday", "Someday"),
+      view("logbook", "Logbook"),
+      ...store.projects().map((name): ListInfo => ({ id: `project:${name}`, label: name, kind: "project", count: store.byProject(name).length })),
+      ...store.areas().map((name): ListInfo => ({ id: `area:${name}`, label: name, kind: "area", count: store.byArea(name).length })),
+    ];
+  }
+
+  private toWidget(t: Task, today: string): WidgetTask {
+    const j = taskJson(t, this.store!);
+    return {
+      id: j.id,
+      title: j.title,
+      project: j.project,
+      area: j.area,
+      due: j.due,
+      scheduled: j.scheduled,
+      priority: j.priority,
+      estimateMinutes: j.estimateMinutes,
+      waitingOn: j.waitingOn,
+      focus: j.focus,
+      overdue: !!((j.due && j.due < today) || (j.scheduled && j.scheduled < today)),
+      done: j.done,
     };
   }
 

@@ -28,12 +28,13 @@ export function estimate(minutes: number): string {
 }
 
 /** The small grey line under a title: where it lives, how long, and when it's due. */
-export function metaParts(t: WidgetTask, today: string): { text: string; urgent?: boolean }[] {
+export function metaParts(t: WidgetTask, today: string, hideWhere = false): { text: string; urgent?: boolean }[] {
   const parts: { text: string; urgent?: boolean }[] = [];
   if (t.waitingOn !== null) parts.push({ text: t.waitingOn ? `waiting on ${t.waitingOn}` : "waiting" });
-  if (t.project ?? t.area) parts.push({ text: (t.project ?? t.area)! });
+  if (!hideWhere && (t.project ?? t.area)) parts.push({ text: (t.project ?? t.area)! });
   if (t.estimateMinutes) parts.push({ text: estimate(t.estimateMinutes) });
   if (t.due) parts.push({ text: `due ${relativeDate(t.due, today)}`, urgent: t.due <= today });
-  else if (t.scheduled && t.scheduled < today) parts.push({ text: `from ${relativeDate(t.scheduled, today)}`, urgent: true });
+  else if (t.scheduled && t.scheduled < today) parts.push({ text: `from ${relativeDate(t.scheduled, today)}`, urgent: !t.done });
+  else if (t.scheduled && t.scheduled > today) parts.push({ text: relativeDate(t.scheduled, today) });
   return parts;
 }

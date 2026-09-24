@@ -1,13 +1,42 @@
 import { useEffect, useState } from "react";
-import type { WidgetTask } from "../../shared/api";
+import type { ListId, WidgetTask } from "../../shared/api";
 import { CaptureInput } from "./Capture";
 import { longDate } from "./format";
+import { ListPicker } from "./ListPicker";
+import { ListView } from "./ListView";
 import { TaskRow } from "./TaskRow";
 import { useSnapshot } from "./useSnapshot";
 
 export function Popover() {
   const snap = useSnapshot();
   const [error, setError] = useState<string | null>(null);
+  const [list, setList] = useState<ListId>("today");
+  const [picking, setPicking] = useState(false);
+
+  // Like h/l in the TUI: ←/→ step through the lists (unless you're typing). Esc backs out.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement) return;
+      const lists = snap?.lists ?? [];
+      const i = lists.findIndex((l) => l.id === list);
+      if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && lists.length) {
+        const next = lists[(i + (e.key === "ArrowRight" ? 1 : lists.length - 1)) % lists.length];
+        setList(next.id);
+        setPicking(false);
+      } else if (e.key === "Escape") {
+        if (picking) setPicking(false);
+        else if (list !== "today") setList("today");
+        else window.taskApp.hideWindow();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [snap, list, picking]);
+
+  // A project or area that disappears (renamed, emptied and deleted) falls back to Today.
+  useEffect(() => {
+    if (snap && !snap.lists.some((l) => l.id === list) && !snap.error) setList("today");
+  }, [snap, list]);
 
   useEffect(() => {
     if (!error) return;
@@ -24,12 +53,20 @@ export function Popover() {
     </ul>
   );
 
+  const current = snap.lists.find((l) => l.id === list);
+  const subtitle = current?.kind === "project" ? "Project" : current?.kind === "area" ? "Area" : current?.count ? `${current.count} open` : "";
+
   return (
     <div className="popover">
       <header>
         <div>
-          <h1>Today</h1>
-          <div className="sub">{longDate(snap.date)}</div>
+          <button className="list-title" aria-expanded={picking} onClick={() => setPicking(!picking)}>
+            <h1>{current?.label ?? "Today"}</h1>
+            <svg viewBox="0 0 10 10" aria-hidden="true">
+              <path d="M2 3.5 5 6.5 8 3.5" />
+            </svg>
+          </button>
+          <div className="sub">{list === "today" ? longDate(snap.date) : subtitle}</div>
         </div>
         <div className="actions">
           <button
@@ -51,8 +88,20 @@ export function Popover() {
       </header>
 
       <main>
+        {picking && (
+          <ListPicker
+            lists={snap.lists}
+            current={list}
+            onPick={(id) => {
+              setList(id);
+              setPicking(false);
+            }}
+          />
+        )}
         {snap.error ? (
           <div className="banner">{snap.error}</div>
+        ) : list !== "today" ? (
+          <ListView id={list} snap={snap} onError={setError} />
         ) : (
           <>
             <section>

@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, Tray } from "electron";
-import type { Snapshot } from "../shared/api.js";
+import type { ListId, Snapshot } from "../shared/api.js";
 import { VaultService } from "./vaultService.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -167,6 +167,7 @@ async function openUrl(url: string | null): Promise<void> {
 
 function registerIpc(): void {
   ipcMain.handle("snapshot:get", () => snapshot());
+  ipcMain.handle("list:get", (_e, id: ListId) => vault.list(id));
   ipcMain.handle("task:complete", (_e, id: string) => vault.complete(id));
   ipcMain.handle("task:uncomplete", (_e, id: string) => vault.uncomplete(id));
   ipcMain.handle("capture:add", (_e, text: string) => vault.capture(text));
@@ -205,4 +206,5 @@ app.on("will-quit", () => {
   globalShortcut.unregisterAll();
   void vault.stop();
 });
+
 
