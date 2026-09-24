@@ -163,8 +163,9 @@ Rebuild after any source change, or the CLI keeps running the old code.
 ## Desktop widget
 
 `desktop/` is an Electron menu-bar widget (popover, ⌃⌥Space quick capture, floating focus pill).
-Its main process imports `../src/core` directly, so a core change also needs
-`npm --prefix desktop run build`. It uses a read-only scan (`new TaskStore(config, { persistIds: false })`)
+Its main process imports `../src/core` directly, so a core change also affects the widget. The
+user runs the packaged copy in `~/Applications/task-app.app`, so after changing `src/core` or
+`desktop/`, run `npm run widget:install` (or tell the user to) or they'll keep running the old build. It uses a read-only scan (`new TaskStore(config, { persistIds: false })`)
 so its file watcher never writes. It never sets focus, and has no timer, AI calls or calendar writes
 (the user's choices). Keep it that way unless they ask.
 
