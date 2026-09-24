@@ -46,6 +46,7 @@ task-app goals [--json]
 task-app project <name> [--goal G|none] [--area A|none]
 task-app review [--json] [--date D]   # everything a plan/review needs, in one read
 task-app notes [--since D] [--content] [--json]   # notes changed since D: ## Actions + already-captured tasks
+task-app capture [--dry-run] [--json]   # sweep of the notes world: every ## Actions bullet from an untouched note → Inbox, verbatim
 task-app note show [--date D] [--section S] [--previous] [--json]
 task-app note write --section S [--date D] [--text "..."]   # or pipe the body on stdin (preferred)
 task-app sweep                    # archive completed tasks into Logbook.md; safe anytime
@@ -89,6 +90,12 @@ Each routine has its own file next to this one. Read the relevant file and follo
 
 A full brief on one meeting that isn't going into the note ("prep me for my 2pm") belongs to the
 standalone `meeting-prep` skill, not this one.
+
+`task-app capture` is not the meeting-capture routine — it's a blunter, mechanical fallback that
+adds every `## Actions` bullet verbatim, no classification or dedup-by-meaning. Use
+`meeting-capture.md`'s routine for "process my notes"; reach for `capture --dry-run` only as an
+occasional safety net (e.g. "did I miss capturing anything?") to show the user what's sitting
+untouched, and only actually add it with their OK.
 
 For a quick "what's on my plate?", skip the full routine: `task-app review` (plain) plus
 today's calendar, answered in a few lines.

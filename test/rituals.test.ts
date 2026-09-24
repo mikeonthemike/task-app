@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
 import { previousNoteDate, writeSection } from "../src/core/dailyNote.js";
-import { scanNotes } from "../src/core/notes.js";
+import { captureNotesToInbox, scanNotes } from "../src/core/notes.js";
 import { nextDate, nextOccurrence } from "../src/core/recurrence.js";
 import { TaskStore } from "../src/core/store.js";
 
@@ -99,6 +99,87 @@ describe("meeting notes scan", () => {
   test("--since filters by modification date", () => {
     write("Old.md", "x");
     assert.equal(scanNotes(config, [], { since: "2999-01-01" }).length, 0);
+  });
+});
+
+describe("capture notes into inbox", () => {
+  test("adds every Actions bullet from an untouched note, skipping label bullets and nested children", () => {
+    write(
+      "Intro with Jordan.md",
+      "## Actions\n- review board paper\n* set up meetings with:\n  - Avery\n  - Blake\n",
+    );
+    const store = new TaskStore(config);
+    const { added, skipped } = captureNotesToInbox(config, store);
+
+    assert.deepEqual(skipped, []);
+    assert.deepEqual(
+      added.map((a) => a.title),
+      ["review board paper", "Avery", "Blake"],
+    );
+    assert.equal(added.every((a) => a.from === "Intro with Jordan.md"), true);
+    assert.deepEqual(
+      store.inbox().map((t) => t.title).sort(),
+      ["Avery", "Blake", "review board paper"],
+    );
+    assert.deepEqual(store.byId(added[0].id)!.notes, ["From: Intro with Jordan.md"]);
+  });
+
+  test("leaves a note alone once anything has been captured from it, even with new bullets", () => {
+    write("Catch up.md", "## Actions\n- already handled\n- brand new one\n");
+    const store = new TaskStore(config);
+    store.add({ title: "Already handled, reworded", notes: ["From: Catch up.md"] });
+
+    const { added, skipped } = captureNotesToInbox(config, store);
+    assert.deepEqual(added, []);
+    assert.equal(skipped.length, 1);
+    assert.match(skipped[0].reason, /already has 1 task\(s\) captured/);
+  });
+
+  test("is idempotent: a second run captures nothing further", () => {
+    write("Standup.md", "## Actions\n- ship the thing\n");
+    const store = new TaskStore(config);
+    const first = captureNotesToInbox(config, store);
+    assert.equal(first.added.length, 1);
+
+    const second = captureNotesToInbox(config, store);
+    assert.deepEqual(second.added, []);
+    assert.equal(store.all().length, 1);
+  });
+
+  test("handles real checkbox syntax under Actions: strips [ ], skips [x] and empty checkboxes", () => {
+    write(
+      "Standup notes.md",
+      "## Actions\n- [ ] file the expense report\n- [x] already sent the invite\n- [ ]\n",
+    );
+    const store = new TaskStore(config);
+    const { added } = captureNotesToInbox(config, store);
+    assert.deepEqual(added.map((a) => a.title), ["file the expense report"]);
+  });
+
+  test("skips an unfilled template placeholder", () => {
+    write("Acme Dev Model.md", "## Actions\n- [ ] <Insert Actions>\n");
+    const store = new TaskStore(config);
+    const { added } = captureNotesToInbox(config, store);
+    assert.deepEqual(added, []);
+  });
+
+  test("dry-run reports what would be added without writing anything", () => {
+    write("Planning.md", "## Actions\n- draft the roadmap\n");
+    const store = new TaskStore(config);
+    const { added } = captureNotesToInbox(config, store, { dryRun: true });
+
+    assert.deepEqual(added.map((a) => a.title), ["draft the roadmap"]);
+    assert.equal(store.all().length, 0);
+    assert.equal(new TaskStore(config).all().length, 0);
+  });
+
+  test("skips notes with no ## Actions section, and task/template files", () => {
+    write(".obsidian/templates.json", JSON.stringify({ folder: "templates" }));
+    write("templates/Catch Up.md", "## Actions\n- template junk\n");
+    write("No actions here.md", "just prose\n");
+    const store = new TaskStore(config);
+    const { added } = captureNotesToInbox(config, store);
+    assert.deepEqual(added, []);
   });
 });
 

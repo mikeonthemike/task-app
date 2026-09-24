@@ -7,6 +7,7 @@ import type { Task } from "../core/task.js";
 import { quickParse } from "../core/quickParse.js";
 import { parseArgs, parseFullEdit, tokenize } from "../core/cliArgs.js";
 import { estimateMinutes, formatDuration, isFocus, waitingOn } from "../core/meta.js";
+import { captureNotesToInbox } from "../core/notes.js";
 
 type Section =
   | { kind: "inbox" }
@@ -157,6 +158,10 @@ export function App({ config }: { config: AppConfig }) {
       const moved = store.sweep();
       setStatus(moved.length ? `Swept ${moved.length} completed task(s) into Logbook.` : "Nothing to sweep.");
       rerender();
+    } else if (input === "c") {
+      const { added } = captureNotesToInbox(config, store);
+      setStatus(added.length ? `Captured ${added.length} task(s) from notes into Inbox.` : "Nothing to capture.");
+      rerender();
     }
   });
 
@@ -237,7 +242,7 @@ export function App({ config }: { config: AppConfig }) {
       <Box marginTop={1}>
         <Text dimColor>
           {status ||
-            "a add · e edit · space/enter complete · h/l switch list · j/k move · x sweep logbook · q quit"}
+            "a add · e edit · space/enter complete · h/l switch list · j/k move · x sweep logbook · c capture notes · q quit"}
         </Text>
       </Box>
     </Box>
