@@ -160,6 +160,14 @@ it.
 `npm run build` (clean rebuild into `dist/`, which the linked `task-app` binary runs).
 Rebuild after any source change, or the CLI keeps running the old code.
 
+## Desktop widget
+
+`desktop/` is an Electron menu-bar widget (popover, ⌃⌥Space quick capture, floating focus pill).
+Its main process imports `../src/core` directly, so a core change also needs
+`npm --prefix desktop run build`. It uses a read-only scan (`new TaskStore(config, { persistIds: false })`)
+so its file watcher never writes. It never sets focus, and has no timer, AI calls or calendar writes
+(the user's choices). Keep it that way unless they ask.
+
 ## Vault layout
 
 ```

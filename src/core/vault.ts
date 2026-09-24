@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import matter from "gray-matter";
@@ -193,7 +194,16 @@ function parseLine(
   };
 }
 
-export function scanVault(config: AppConfig): Task[] {
+export interface ScanOptions {
+  /**
+   * Write freshly assigned 🆔 fields back to their files (the default). A watcher that rescans
+   * on every Obsidian autosave passes false, so it never rewrites a line the user is still
+   * typing; those tasks come back with `idPending` set and an id that is only good for this scan.
+   */
+  persistIds?: boolean;
+}
+
+export function scanVault(config: AppConfig, { persistIds = true }: ScanOptions = {}): Task[] {
   const tasksRoot = join(config.vaultPath, config.tasksDir);
   const files = findAllMarkdownFiles(tasksRoot);
   const tasks: Task[] = [];
@@ -217,6 +227,13 @@ export function scanVault(config: AppConfig): Task[] {
       // a fresh id, but that's only stable once it's actually written back to the
       // file (otherwise it'd be re-randomized on every scan).
       if (!ID_RE.test(lines[i])) {
+        if (!persistIds) {
+          // Stable across rescans (unlike parseLine's random id) so a UI can still act on it.
+          const key = `${relative(tasksRoot, file)}\n${task.title}`;
+          task.id = `~${createHash("sha1").update(key).digest("hex").slice(0, 8)}`;
+          task.idPending = true;
+          continue;
+        }
         lines[i] = serializeTaskLine(task);
         idsWereAdded = true;
       }
