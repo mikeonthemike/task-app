@@ -89,10 +89,15 @@ appended under your cursor. Ids are only saved when you act on a task in the wid
 
 ```bash
 cd desktop && npm install && cd ..
-npm run widget     # builds and launches it (electron-vite preview rebuilds first)
+npm run widget:install   # builds task-app.app into ~/Applications and launches it
 ```
 
-It isn't packaged into a `.app` yet, so "Open at login" is hidden until it is.
+After that, launch it like any app (Spotlight: "task-app"), and turn on **Open at login** from the
+menu-bar icon's right-click menu. The first launch asks for access to your Documents folder if
+the vault lives there. The build is ad-hoc signed (no Apple developer account), so after a
+reinstall macOS may ask for that access again. Re-run `npm run widget:install` after pulling
+changes, since the installed copy doesn't update itself. `npm run widget` still runs it straight
+from source for development.
 
 ### Using it with Claude Code
 

@@ -9,7 +9,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "package": "electron-vite build && electron-builder --mac dir",
+    "install-app": "npm run package && node scripts/install-app.mjs"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
@@ -22,6 +24,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.6"
@@ -29,5 +32,31 @@
   "allowScripts": {
     "esbuild@0.25.12": true,
     "esbuild@0.28.2": true
+  },
+  "productName": "task-app",
+  "build": {
+    "appId": "com.mikeonthemike.task-app",
+    "productName": "task-app",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "resources/trayTemplate*.png"
+    ],
+    "mac": {
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": "dir",
+      "identity": "-",
+      "extendInfo": {
+        "LSUIElement": true
+      },
+      "hardenedRuntime": false
+    },
+    "electronLanguages": [
+      "en",
+      "en_GB"
+    ]
   }
 }
