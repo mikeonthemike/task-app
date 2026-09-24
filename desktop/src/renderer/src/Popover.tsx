@@ -56,8 +56,19 @@ export function Popover() {
         ) : (
           <>
             <section>
-              <h2>Top 3</h2>
-              {snap.focus.length ? rows(snap.focus) : <p className="empty">No top 3 yet. Ask Claude to plan your day.</p>}
+              <h2>
+                Top 3 {!snap.focus.length && snap.proposed.length > 0 && <span className="badge">Proposed</span>}
+              </h2>
+              {snap.focus.length ? (
+                rows(snap.focus)
+              ) : snap.proposed.length ? (
+                <>
+                  {rows(snap.proposed)}
+                  <p className="empty">From today's plan. Reply “confirm” to Claude to lock these in.</p>
+                </>
+              ) : (
+                <p className="empty">No top 3 yet. Ask Claude to plan your day.</p>
+              )}
             </section>
 
             {snap.plan && (

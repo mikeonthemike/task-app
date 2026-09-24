@@ -18,6 +18,11 @@ export interface Snapshot {
   date: string;
   /** Open #focus tasks: the top 3 Claude proposed and the user confirmed. Read-only here. */
   focus: WidgetTask[];
+  /**
+   * When nothing is tagged #focus yet: the top 3 today's `## Plan` proposes, still waiting for
+   * the user's "confirm" to Claude. Shown as proposed; the widget never sets focus itself.
+   */
+  proposed: WidgetTask[];
   /** Today and overdue, minus focus and follow-ups. Overdue first. */
   today: WidgetTask[];
   /** Waiting-on items whose follow-up date has arrived. */
