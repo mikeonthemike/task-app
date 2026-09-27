@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "A Things-style personal task manager backed by your Obsidian vault, driven day-to-day by Claude Code (chat or a scheduled session) for capture, Gmail/Calendar/Slack sync, and daily planning.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "task-app": "./bin/task-app.js"
