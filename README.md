@@ -1,262 +1,239 @@
 # task-app
 
-A personal task manager in the spirit of [Things](https://culturedcode.com/things/), run from
-the terminal, backed by your Obsidian vault — with Claude Code as the "smart" layer instead of
-any built-in API key.
+A personal task manager in the spirit of [Things](https://culturedcode.com/things/), stored as
+plain markdown in your Obsidian vault, with an AI agent as its "smart" layer.
 
-- **Storage**: tasks are plain markdown checkboxes in your vault, using the
-  [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/) syntax (`📅` due, `⏳` scheduled,
-  `⏫`/`🔼`/etc priority, `🔁` recurrence). No custom Obsidian plugin required — install the Tasks
-  community plugin if you also want to query/filter tasks from inside notes.
-- **Views**: Inbox, Today, Focus, Waiting, Upcoming, Anytime, Someday, Logbook, plus one list
-  per Project (`Tasks/Projects/*.md`) and Area (`Tasks/Areas/*.md`).
-- **What matters**: 90-day goals in `Tasks/Goals.md` that projects and tasks link to, a daily top 3
-  (`#focus`), waiting-on items with follow-up dates (`#waiting/<person>`), and effort estimates
-  (`#est/30m`). All of it is stored as plain tags or frontmatter.
-- **Daily note as the record**: `task-app note write` keeps `## Plan` / `## Shutdown` sections in
-  your Obsidian daily note, and `task-app review --json` gives a planner everything it needs in
-  one read.
-- **TUI**: browse and complete tasks, quick-add with a basic natural-date fallback (no API key
-  needed at all for this).
-- **The smart stuff (capture, Gmail/Calendar/Slack sync, daily planning) is driven by talking to
-  Claude Code**, not by the app calling out to Anthropic or Google/Slack APIs itself. See
-  [CLAUDE.md](./CLAUDE.md) for exactly how that works.
+task-app itself is deliberately simple: a CLI, a terminal UI and a macOS menu-bar widget, all
+built on one small core that reads and writes the vault. It has no model, no API keys and no
+network access. Parsing a rough capture, pulling actions out of email or meeting notes and
+planning your day are done by an agent you already use: it calls `task-app` in a shell and uses
+its own Gmail, Calendar and Slack connectors. [Claude](https://claude.com/claude-code) is the
+recommended agent, and any agent that reads [`AGENTS.md`](./AGENTS.md) and can run shell commands
+will work.
 
-## Why no API keys?
+## Design decisions
 
-The original design had the app hold its own Anthropic key and Google OAuth client. If you
-don't have (or don't want to set up) either of those, but you're already using Claude Code —
-which has its own model and its own authenticated Gmail/Calendar/Slack connectors — there's no
-reason to duplicate that. Instead, `task-app` exposes scriptable commands
-(`add` / `list` / `complete` / `edit` / `move`), and a Claude Code session (this one, a fresh one
-pointed at this folder, or a scheduled one) calls them directly: it parses your rough capture
-text itself, pulls from Gmail/Calendar/Slack with its own connectors, and writes your daily plan
-straight into chat. `CLAUDE.md` documents the exact conventions so any session picks this up
-without re-explaining it.
+These are the choices that shape everything else. They're deliberate, so please don't "fix" them
+without a conversation.
 
-If you'd rather have the app work standalone with its own keys, that's a reasonable direction to
-add back later — it's just not what's built right now.
+**The vault is the source of truth.** Tasks are ordinary checkbox lines in the
+[Obsidian Tasks plugin](https://publish.obsidian.md/tasks/) format (`📅` due, `⏳` scheduled,
+`⏫`/`🔼` priority, `🔁` recurrence, `🆔` id). There's no database, sync service or custom
+Obsidian plugin. Your tasks stay readable and editable in Obsidian, grep, git or any other
+editor, and they still work if you stop using task-app.
+
+**Structure comes from where a task lives.** A task's project or area is the file it's in
+(`Tasks/Projects/<Name>.md`, `Tasks/Areas/<Name>.md`). Everything else is plain tags or
+frontmatter that Obsidian won't mangle: goals (`#goal/…`), today's top 3 (`#focus`),
+waiting-on (`#waiting/<person>`) and estimates (`#est/30m`). Moving a task means moving its
+line, so that's the CLI's job.
+
+**Only the CLI writes task lines.** Emoji-field syntax is easy to get subtly wrong, and a
+hand edit in the wrong file silently changes a task's project. Agents are told never to edit
+task lines by hand. `add`/`edit` reject titles that contain CLI flags or CLI output, and
+`task-app doctor` finds duplicate ids, missing done dates and misfiled items.
+
+**Stable ids, assigned lazily.** Each task carries a short `🆔` id, which the Tasks plugin also
+uses for dependencies. If you type a task straight into Obsidian, task-app gives it an id the
+next time it scans the vault and writes it back, so agents and the CLI always have a stable
+handle.
+
+**No AI in the app, and no API keys.** An agent session already has a capable model and
+authenticated connectors, so task-app doesn't duplicate them. It exposes scriptable commands
+with `--json` output, and the agent brings the judgment. The CLI's own natural-date parsing
+(chrono-node) is only a fallback for people typing into a plain terminal.
+
+**Propose, then act.** The agent suggests and you decide. Today's top 3, calendar focus blocks,
+triage moves and captures from notes are all proposals until you say yes. Scheduled runs that
+happen while you're away only write proposals to your daily note. They never set focus, book
+time, send messages or reorganise tasks.
+
+**Goals feed a daily top 3.** `Tasks/Goals.md` holds a few ~90-day outcomes, one `## heading`
+each. Projects link to a goal through frontmatter, and their tasks inherit it. Each day the
+agent proposes three `#focus` tasks that move a goal forward, and `task-app review` flags goals
+and projects with nothing active.
+
+**The daily note is the master record.** Each day's plan, meetings and shutdown are sections
+(`## Plan`, `## Meetings`, `## Shutdown`) in your Obsidian daily note. task-app only ever
+replaces its own sections and never touches your writing around them. Plans reference task
+ids and never use `- [ ]` checkboxes, which the Tasks plugin would pick up as duplicate tasks.
+
+**Completed tasks stay put until you sweep.** Completing a task only flips its checkbox, and
+the Logbook view finds done tasks wherever they are. `task-app sweep` moves them into
+`Logbook.md`, tagging each with the project or area it came from.
+
+**The widget is a window, not a second brain.** The menu-bar widget shows your top 3 and
+Today, and lets you tick tasks off or capture one line into the Inbox. It never sets focus,
+has no timer or time tracking, and makes no AI or network calls. Its file watcher never writes,
+so a task you're halfway through typing in Obsidian doesn't get an id appended under your
+cursor.
+
+## How it fits together
+
+```
+src/core/     the vault model: parse/serialise task lines, the store, goals, review,
+              daily notes, notes scanning, doctor. Everything else is built on this.
+src/cli.tsx   the task-app command (scriptable, --json everywhere)
+src/tui/      an Ink terminal UI (run task-app with no arguments)
+desktop/      an Electron menu-bar widget; imports src/core directly
+skill/        the agent skill: SKILL.md plus step-by-step routines
+AGENTS.md     instructions for any agent driving or developing task-app
+```
+
+The agent side has two layers. [`AGENTS.md`](./AGENTS.md) holds the conventions an agent needs
+when it's working in this folder. [`skill/task-app/`](./skill/task-app) is an
+[Agent Skill](https://agentskills.io) (`SKILL.md` plus `routines/`) that makes the same
+behaviour available from any session, in any folder.
 
 ## Setup
+
+Requires Node 20+ and an Obsidian vault (the Tasks plugin is optional, but useful for querying
+tasks from inside notes).
 
 ```bash
 npm install
 npm run build
-npm link          # makes the `task-app` command available globally
-npm test          # runs against throwaway temp vaults, never your real one
-task-app init
+npm link          # puts `task-app` on your PATH
+task-app init     # asks for your vault path and tasks folder (default "Tasks")
 ```
 
-`init` just asks for your vault path and which subfolder to use for tasks (default `Tasks`).
-
-Run `task-app` with no arguments to launch the TUI, or `task-app help` for the full command
-reference.
-
-### TUI keybindings
-
-| Key | Action |
-| --- | --- |
-| `h` / `l` or ←/→ | switch list (Inbox, Today, Upcoming, ...) |
-| `j` / `k` or ↑/↓ | move selection |
-| `space` / `enter` | complete the selected task |
-| `a` | quick-add a task (plain text; a natural-language date like "tomorrow" is picked up locally) |
-| `e` | edit the selected task — opens a pre-filled `--title ... --due ... --project ...` line (same flags as the CLI's `edit`/`move`); delete a flag to clear that field, `esc` to cancel |
-| `x` | sweep completed tasks into `Logbook.md` |
-| `c` | capture `## Actions` bullets from untouched notes into the Inbox (see `task-app capture`) |
-| `q` / `esc` | quit |
-
-Every task line also shows its id in brackets, e.g. `[cc7xg7sv]` — that's what `task-app edit/move/complete` take on the command line.
-
-### Menu-bar widget (macOS)
-
-`desktop/` is a small Electron app that sits in the menu bar:
-
-- **Popover** (click the ☑ icon): today's top 3, the `## Plan` from your daily note, waiting-on
-  follow-ups that are due, the rest of Today (overdue first), and what you've done today. Tick a
-  circle to complete a task; click a title to open its file in Obsidian. Click the title
-  ("Today ▾") to switch lists, the same ones as the TUI (Inbox, Waiting, Upcoming, Anytime,
-  Someday, Logbook, each project and area), plus **All open**, which groups every open task
-  outside Someday by project/area. ←/→ steps through them, and Esc goes back to Today.
-- **Quick capture** (⌃⌥Space anywhere): one line into the Inbox, with the same basic date
-  pickup as the TUI ("call the dentist tomorrow").
-- **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the
-  popover or the icon's right-click menu, and drag it wherever you like.
-
-The widget only *shows* your top 3; setting them is still Claude's proposal plus your yes. It
-reads and writes the vault through the same `src/core` code as the CLI and rescans when files
-change. Those rescans never write, so a task you're mid-typing in Obsidian doesn't get an id
-appended under your cursor. Ids are only saved when you act on a task in the widget.
-
-```bash
-cd desktop && npm install && cd ..
-npm run widget:install   # builds task-app.app into ~/Applications and launches it
-```
-
-After that, launch it like any app (Spotlight: "task-app"), and turn on **Open at login** from the
-menu-bar icon's right-click menu. The first launch asks for access to your Documents folder if
-the vault lives there. The build is ad-hoc signed (no Apple developer account), so after a
-reinstall macOS may ask for that access again. Re-run `npm run widget:install` after pulling
-changes, since the installed copy doesn't update itself. `npm run widget` still runs it straight
-from source for development.
-
-### Using it with Claude Code
-
-Open a Claude Code session in this folder (or any folder — the CLI works from anywhere once
-`task-app init` has run) and just talk to it normally:
-
-- *"Add a task: call the dentist tomorrow, and renew my passport by end of October"*
-- *"Check my starred emails and calendar and pull anything actionable into my inbox"*
-- *"What should I focus on today?"*
-- *"Move the passport task into a new Travel project"*
-
-Claude reads [CLAUDE.md](./CLAUDE.md) for the exact `task-app` command syntax and the
-conventions for deduping Gmail/Slack imports, so it should do the right thing without needing
-each command spelled out. For a recurring morning briefing, set up a
-[scheduled Claude Code task](https://docs.claude.com) that runs the "daily planning" steps from
-`CLAUDE.md` each weekday.
-
-## Daily routines
-
-The day runs on four routines that Claude follows, defined in
-[`skill/task-app/routines/`](./skill/task-app/routines):
-
-| Routine | When | Writes to the daily note |
-| --- | --- | --- |
-| Morning plan | weekdays 08:30 (scheduled) | `## Plan`: proposed top 3, focus blocks, follow-ups due |
-| Evening shutdown | Mon–Thu 16:30 (scheduled) | `## Shutdown`: done, carry-over, actions to capture, draft top 3 |
-| Weekly review | Fridays 16:00 (scheduled) | `## Weekly Review`: inbox, waiting-on, goal health, next week |
-| Meeting-notes capture | on demand ("process my notes") | adds tasks after you confirm |
-
-The scheduled runs only *propose*. You reply in the run's session to confirm the top 3
-(`task-app focus`), book focus blocks in Calendar, or capture actions.
-
-Meeting-notes capture does real judgment — classifying each action as a task vs.
-waiting-on vs. skip, writing a clean title, deciding where it's filed. `task-app capture`
-(or `c` in the TUI) is a blunter, mechanical fallback: it adds every `## Actions` bullet
-from a note nothing's been captured from yet, verbatim, into the Inbox — a periodic
-safety net for notes nobody's engaged with at all, not a replacement for the routine.
-
-`skill/task-app/` is also the source for the `task-app` Claude skill, which makes all of this
-available from any Claude session on this Mac. After changing it, run `npm run skill:pack` and
-upload `task-app-skill.zip` under Settings → Capabilities → Skills.
-
-## Vault layout
-
-```
-<vault>/Tasks/
-  Inbox.md              # unfiled captures (quick-add, or things Claude pulls in)
-  Someday.md             # backlog, no date
-  Logbook.md              # completed tasks, archived here by `task-app sweep`
-  Areas/
-    Personal.md
-    Work.md
-  Projects/
-    Website Redesign.md  # optional frontmatter: `area: Work`
-```
-
-Completing a task just flips its checkbox in place — it doesn't move anywhere, and `task-app list logbook` already shows every completed task regardless of which file it physically lives in. Over time that leaves old `[x]` lines cluttering your Project/Area files, so run `task-app sweep` (or press `x` in the TUI) whenever you want to tidy up: it relocates every completed task into `Logbook.md`, tagging it with its original project/area (e.g. `#area/work`) so that history isn't lost. Safe to run anytime, and a no-op if there's nothing to sweep.
-
-A task line looks like:
-
-```
-- [ ] Draft homepage copy 📅 2026-09-30 🔼 🆔 abc126
-```
-
-The `🆔` field is task-app's own stable id (also used by the Tasks plugin for dependency
-linking) — don't remove it, or the task will be treated as new on the next scan.
-
-You don't have to add it yourself: if you type a task straight into Obsidian without
-one, task-app assigns it an id the first time it scans the vault (any `task-app`
-command, or opening the TUI) and writes it back into the file, so it stays stable
-from then on.
-
-## Config file
-
-Lives at `~/.config/task-app/config.json`:
+The config lives in `~/.config/task-app/config.json`:
 
 ```json
 {
   "vaultPath": "/Users/you/ObsidianVault",
-  "tasksDir": "Tasks"
+  "tasksDir": "Tasks",
+  "dailyNotesDir": ""
 }
+```
+
+`dailyNotesDir` is where your `YYYY-MM-DD.md` daily notes live, relative to the vault root
+(empty means the vault root).
+
+## Using it with an agent
+
+Open an agent session (Claude Code, or any agent that reads `AGENTS.md`) in this folder and talk
+normally:
+
+- *"Add: call the dentist tomorrow, and renew my passport by end of October"*
+- *"I'm waiting on Sam for the contract, chase them on Thursday"*
+- *"Check my starred emails and calendar and pull anything actionable into my inbox"*
+- *"Plan my day"* / *"wrap up"* / *"weekly review"* / *"process my notes"*
+
+To use task-app from a session in any folder, install the skill:
+
+- **Claude:** run `npm run skill:pack` and upload `task-app-skill.zip` in the Claude app under
+  Settings → Skills. Re-upload it after changing anything in `skill/`.
+- **Other agents:** point your agent's skills directory at `skill/task-app`, or copy it there.
+
+### Daily routines
+
+The routines in [`skill/task-app/routines/`](./skill/task-app/routines) set how the day runs.
+You can run each one on request or put it on a schedule.
+
+| Routine | Suggested schedule | Writes to the daily note |
+| --- | --- | --- |
+| Morning plan (includes meeting prep) | weekdays 08:30 | `## Plan` (proposed top 3, focus blocks, follow-ups due) and `## Meetings` |
+| Shutdown | Mon–Thu 16:30 | `## Shutdown`: done, carry-over, actions to capture, draft top 3 for tomorrow |
+| Weekly review | Fri 16:00 (includes Friday's shutdown) | `## Weekly Review`: Inbox, waiting-on, goal health, next week |
+| Meeting-notes capture | on demand ("process my notes") | nothing: proposes tasks, adds them when you say yes |
+
+Meeting-notes capture uses judgment: it classifies each action as a task, a waiting-on item or
+a skip, dedups by meaning, and writes clean titles. `task-app capture` is the blunt fallback. It
+adds every `## Actions` bullet from notes nothing has been captured from yet into the Inbox,
+word for word. It's a safety net for notes nobody has looked at, not a replacement for the
+routine (use `--dry-run` first).
+
+## Without an agent
+
+Everything works without an agent too, just without the judgment.
+
+**TUI.** Run `task-app` with no arguments.
+
+| Key | Action |
+| --- | --- |
+| `h` / `l` or ←/→ | switch list (Inbox, Today, Upcoming, …) |
+| `j` / `k` or ↑/↓ | move the selection |
+| `space` / `enter` | complete the selected task |
+| `a` | quick-add (plain text; a date like "tomorrow" is picked up) |
+| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field |
+| `x` | sweep completed tasks into `Logbook.md` |
+| `c` | capture `## Actions` bullets from untouched notes (see `task-app capture`) |
+| `q` / `esc` | quit |
+
+Each task shows its id in brackets, e.g. `[cc7xg7sv]`. That's the id `complete`, `edit` and
+`move` take.
+
+**Menu-bar widget (macOS).** `desktop/` gives you:
+
+- **Popover** (click the ☑ icon): today's top 3, the `## Plan` from your daily note, follow-ups
+  due, the rest of Today and what you've done today. Tick a task to complete it, or click its
+  title to open it in Obsidian. The "Today ▾" title switches lists (the TUI's lists plus
+  **All open**), ←/→ steps through them and Esc returns to Today.
+- **Quick capture** (⌃⌥Space from anywhere): one line into the Inbox.
+- **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the
+  popover or the icon's right-click menu.
+
+```bash
+npm --prefix desktop install
+npm run widget:install   # builds task-app.app into ~/Applications and launches it
+```
+
+Turn on **Open at login** from the icon's right-click menu. The build is ad-hoc signed, so macOS
+may ask for Documents access again after a reinstall. The installed copy doesn't update itself,
+so re-run `widget:install` after pulling changes. `npm run widget` runs it from source.
+
+## Vault layout
+
+```
+<vault>/
+  Tasks/
+    Inbox.md               # unfiled captures
+    Someday.md             # backlog, no date
+    Logbook.md             # completed tasks, moved here by `task-app sweep`
+    Goals.md               # one ## heading per goal; optional frontmatter `horizon:`
+    Areas/Work.md          # area-level tasks with no specific project
+    Projects/Launch.md     # optional frontmatter: `area: Work`, `goal: Launch`
+  2026-09-28.md            # daily note; task-app owns only its ## Plan / ## Meetings / ## Shutdown
+```
+
+A task line:
+
+```
+- [ ] Draft homepage copy 📅 2026-09-30 🔼 #est/45m 🆔 abc126
 ```
 
 ## Command reference
 
+`task-app help` prints the full reference. In summary:
+
+| Command | What it does |
+| --- | --- |
+| `add <title> [flags]` | Add a task. Flags: `--project`, `--area`, `--due`, `--scheduled`, `--start`, `--priority`, `--recurrence`, `--tag` (repeatable), `--notes`, `--someday`, `--goal`, `--focus`, `--waiting <person>`, `--followup`, `--est` |
+| `list [view] [--json]` | `inbox`, `today` (default), `overdue`, `upcoming`, `anytime`, `someday`, `logbook`, `all`, `focus`, `waiting`, `project:<name>`, `area:<name>`, `goal:<name>` |
+| `complete` / `uncomplete <id>` | Tick or untick a task (recurring tasks spawn their next occurrence) |
+| `edit <id> [flags]` | Change fields in place; pass `none` to clear one |
+| `move <id>` | `--project`, `--area`, `--someday` or `--inbox` |
+| `focus [<id>…]` | Set exactly these as today's top 3; `--add`, `--remove`, `--clear`; no args shows them |
+| `goals [--json]` | Goals with open, focus and recently-done counts |
+| `project <name>` | Show a project, or set its `--goal` / `--area` frontmatter |
+| `review [--json]` | Everything a plan or review needs in one read |
+| `note show` / `note write` | Read or replace a `## Section` of a daily note |
+| `notes [--since D]` | Notes changed since a date, with their `## Actions` and what's been captured |
+| `capture [--dry-run]` | Sweep `## Actions` bullets from untouched notes into the Inbox |
+| `sweep` | Move completed tasks into `Logbook.md` |
+| `doctor [--fix]` | Vault health check (read-only unless `--fix`) |
+
+## Development
+
+```bash
+npm test          # node:test against throwaway temp vaults, never your real one
+npm run build     # clean rebuild into dist/, which the linked binary runs
 ```
-task-app                          Launch the interactive TUI.
-task-app init                     Set up (or update) the vault path.
 
-task-app add <title...> [flags]   Add a task.
-  --project <name>                 File under Tasks/Projects/<name>.md
-  --area <name>                    File under Tasks/Areas/<name>.md
-  --due <YYYY-MM-DD>                Hard deadline
-  --scheduled <YYYY-MM-DD>          When it should appear in Today
-  --start <YYYY-MM-DD>              Start-on date
-  --priority <highest|high|medium|low|lowest>
-  --recurrence <text>               e.g. "every week"
-  --tag <tag>                       Repeatable, e.g. --tag gmail --tag urgent
-  --notes <text>                    Repeatable
-  --someday                         File into Someday.md instead
-  --goal <goal>                     Link to a goal in Goals.md (#goal/…)
-  --focus                           Make it one of today's top 3
-  --waiting <person>                Waiting on someone (#waiting/…)
-  --followup <YYYY-MM-DD>           When to chase it (alias for --scheduled)
-  --est <30m|2h|1h30m>              Effort estimate (#est/…)
+Rebuild after any source change, or `task-app` keeps running the old code. The widget imports
+`src/core`, so changes there also need `npm run widget:install`.
 
-task-app list [section] [--json]  Sections: inbox, today, overdue, upcoming,
-                                   anytime, someday, logbook, all, focus,
-                                   waiting, project:<name>, area:<name>,
-                                   goal:<name>. Default: today.
+## License
 
-task-app complete <id>            Mark a task done.
-task-app uncomplete <id>          Undo that.
-
-task-app edit <id> [flags]        Update fields in place (doesn't move file).
-  --title <text> --due <date|none> --scheduled <date|none> --start <date|none>
-  --priority <level|none> --recurrence <text|none> --tag <tag> (repeatable, adds)
-  --goal <goal|none> --waiting <person|none> --followup <date|none> --est <dur|none>
-
-task-app focus [<id>...] [--force] Set exactly these as today's top 3 (#focus).
-  --add <id> | --remove <id> | --clear   No args: show current focus.
-
-task-app goals [--json]           Goals from Goals.md with open/focus/done counts.
-task-app project <name> [--goal <goal>|none] [--area <area>|none]
-                                   Show a project, or set its frontmatter.
-
-task-app review [--json] [--date D]  Everything a plan or review needs in one
-                                   read: focus, overdue, follow-ups, stale
-                                   items, goal and project health, estimates.
-
-task-app note show [--date D] [--section S] [--json]
-task-app note write --section S [--date D] [--text "..."]  (or body on stdin)
-                                   Read/replace a "## S" section of the daily
-                                   note <vault>/YYYY-MM-DD.md. Other content
-                                   in the note is never touched.
-
-task-app move <id> [flags]        Move a task to a different location.
-  --project <name> | --area <name> | --someday | --inbox
-
-task-app sweep                    Relocate completed tasks into Logbook.md,
-                                   tidying up Project/Area files. Safe to run
-                                   anytime — doesn't change what "logbook" shows.
-
-task-app notes [--since D] [--content] [--json]
-                                   Your notes (meeting + daily) changed since D
-                                   (default today): ## Actions section and the
-                                   tasks already captured from each ("From: …").
-                                   Read-only. Skips task files and templates.
-
-task-app capture [--dry-run] [--json]
-                                   The sweep of the notes world: adds every
-                                   ## Actions bullet from an untouched note into
-                                   the Inbox, tagged "From: <name>.md". Only
-                                   touches a note with nothing captured from it
-                                   yet. --dry-run previews without writing.
-
-task-app doctor [--fix] [--json]  Check task files for duplicate ids, missing
-                                   done dates, junk in titles and misfiled Inbox
-                                   items. Read-only unless --fix is given.
-
-task-app help                     Show this message.
-```
+[MIT](./LICENSE)
