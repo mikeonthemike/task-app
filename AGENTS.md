@@ -1,13 +1,17 @@
 # task-app — how to drive this
 
+These instructions are for any coding agent working in this repo (Claude Code, Codex,
+Cursor, Gemini CLI, …). Claude is the recommended agent, but nothing here depends on it.
+
 This is a Things-style personal task manager. The vault (markdown files, in the
 Obsidian [Tasks plugin](https://publish.obsidian.md/tasks/) format) is the source of
-truth. There is deliberately **no built-in Anthropic API key and no Google/Slack
-OAuth app** — instead, whenever the user asks you (Claude) to capture something,
-sync their tasks, or plan their day, you do it directly: parse their text yourself,
-call your own already-connected Gmail/Calendar/Slack tools, and drive the vault
-through the `task-app` CLI. Don't suggest adding API keys back in; that's an
-intentional design choice.
+truth. There is deliberately **no model API key and no Google/Slack OAuth app in the
+app**. Whenever the user asks you (the agent) to capture something, sync their tasks
+or plan their day, you do it yourself: parse their text, call the Gmail/Calendar/Slack
+tools your session is already connected to, and drive the vault through the
+`task-app` CLI. Don't suggest adding API keys back in; that's an intentional design
+choice. [README.md](./README.md#design-decisions) explains the reasons behind it and the
+other design decisions.
 
 ## The CLI is the only way to touch the vault
 
@@ -106,8 +110,9 @@ when a human runs `task-app add` directly from a plain terminal without you.
 
 ## Pulling in Gmail / Calendar / Slack
 
-You already have authenticated connector tools for these in this session — use them
-directly, there's no separate sync module in the app to call. General pattern:
+Use your session's own authenticated connectors (MCP servers or equivalent) for these.
+There's no sync module in the app to call. If your session has no connector for a
+service, tell the user rather than working around it. General pattern:
 
 1. Fetch the relevant items (e.g. starred/labeled Gmail messages, today's Calendar
    events, Slack messages reacted with a chosen emoji).
@@ -149,10 +154,12 @@ skip), dedups by meaning, and writes better titles, none of which `capture` does
 with at all — e.g. if the user asks "did I miss capturing anything?" — and always run it
 with `--dry-run` first to show them what it would add before actually adding it.
 
-`skill/task-app/` is the source for the user's `task-app` account skill (uploaded in the
-Claude app under Settings → Skills). The copy under `~/Library/Application Support/Claude/…`
-is a synced cache, so don't edit it. After changing the skill here, tell the user to re-upload
-it.
+`skill/task-app/` is an [Agent Skill](https://agentskills.io) (`SKILL.md` plus `routines/`),
+and it's the source for every installed copy. In Claude it's uploaded as an account skill
+(`npm run skill:pack`, then Settings → Skills). The copy under
+`~/Library/Application Support/Claude/…` is a synced cache, so don't edit it. Other agents
+load it from their own skills directory. After changing the skill here, tell the user to
+re-upload or re-copy it.
 
 ## Developing task-app
 
