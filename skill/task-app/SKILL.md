@@ -34,7 +34,7 @@ with explicit flags.
 ```bash
 task-app add "<title>" [--project P] [--area A] [--due D] [--scheduled D] [--start D] \
   [--priority highest|high|medium|low|lowest] [--recurrence "every week"] [--tag t] [--notes "..."] [--someday] \
-  [--goal G] [--focus] [--waiting "Person"] [--followup D] [--est 30m]
+  [--goal G] [--focus] [--waiting "Person"] [--followup D] [--est 30m] [--literal]
 task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|project:<n>|area:<n>|goal:<n>] [--json]
 task-app complete <id>            # recurring tasks get their next occurrence automatically
 task-app uncomplete <id>
@@ -115,7 +115,9 @@ today's calendar, answered in a few lines.
 
 For "add: call the dentist tomorrow" or a rough note: work out the title (short, verb-first),
 dates, project/area, goal, waiting-on and estimate yourself, and call `task-app add` with
-explicit flags. `add`/`edit` reject titles containing `[area:…]` or a task-app `--flag`; that
+explicit flags. The CLI only guesses a date from the title when `add` gets no flags at all, so
+any flag keeps the title verbatim. For a bare Inbox item with no other flags, pass `--literal`.
+`add`/`edit` reject titles containing `[area:…]` or a task-app `--flag`; that
 means a flag got quoted into the title, so fix the command.
 
 ## Pulling in Gmail / Calendar / Slack

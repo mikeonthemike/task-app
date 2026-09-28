@@ -13,7 +13,7 @@ export interface ParsedArgs {
 }
 
 /** Flags that never take a value, so `add --focus "Call Sam"` keeps "Call Sam" as the title. */
-export const BOOLEAN_FLAGS = new Set(["someday", "focus", "force", "json", "fix", "clear", "inbox", "previous", "content", "dry-run"]);
+export const BOOLEAN_FLAGS = new Set(["someday", "focus", "force", "json", "fix", "clear", "inbox", "previous", "content", "dry-run", "literal"]);
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];

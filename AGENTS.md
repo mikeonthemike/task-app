@@ -25,7 +25,7 @@ task-app add "<title>" [--project P] [--area A] [--due YYYY-MM-DD] \
   [--scheduled YYYY-MM-DD] [--start YYYY-MM-DD] \
   [--priority highest|high|medium|low|lowest] [--recurrence "every week"] \
   [--tag foo] [--tag bar] [--notes "..."] [--someday] \
-  [--goal G] [--focus] [--waiting "Person"] [--followup YYYY-MM-DD] [--est 30m]
+  [--goal G] [--focus] [--waiting "Person"] [--followup YYYY-MM-DD] [--est 30m] [--literal]
 
 task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|project:<name>|area:<name>|goal:<name>] [--json]
 task-app complete <id>
@@ -107,6 +107,11 @@ relative dates yourself (today's date is whatever `date` reports), figure out
 title vs. project vs. priority, and call `task-app add` with explicit flags. Only
 rely on the CLI's own naive date-guessing fallback (chrono-node) as a safety net for
 when a human runs `task-app add` directly from a plain terminal without you.
+
+That fallback only runs when `add` gets **no flags at all**, and it never picks a past date.
+Any flag keeps the title exactly as given, so "week of 12 Oct" or "weekend" in a title stays
+put. If you're adding a bare Inbox item with no other flags, pass `--literal` so the title
+isn't parsed.
 
 ## Pulling in Gmail / Calendar / Slack
 

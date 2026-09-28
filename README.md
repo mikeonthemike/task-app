@@ -41,7 +41,8 @@ handle.
 **No AI in the app, and no API keys.** An agent session already has a capable model and
 authenticated connectors, so task-app doesn't duplicate them. It exposes scriptable commands
 with `--json` output, and the agent brings the judgment. The CLI's own natural-date parsing
-(chrono-node) is only a fallback for people typing into a plain terminal.
+(chrono-node) is only a fallback for people typing into a plain terminal. It runs only when
+`add` gets no flags, and never picks a past date.
 
 **Propose, then act.** The agent suggests and you decide. Today's top 3, calendar focus blocks,
 triage moves and captures from notes are all proposals until you say yes. Scheduled runs that
