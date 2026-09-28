@@ -83,7 +83,7 @@ AGENTS.md     instructions for any agent driving or developing task-app
 The agent side has two layers. [`AGENTS.md`](./AGENTS.md) holds the conventions an agent needs
 when it's working in this folder. [`skill/task-app/`](./skill/task-app) is an
 [Agent Skill](https://agentskills.io) (`SKILL.md` plus `routines/`) that makes the same
-behaviour available from any session, in any folder.
+behaviour available from any session, in any folder. See [The agent skill](#the-agent-skill).
 
 ## Setup
 
@@ -120,16 +120,55 @@ normally:
 - *"Check my starred emails and calendar and pull anything actionable into my inbox"*
 - *"Plan my day"* / *"wrap up"* / *"weekly review"* / *"process my notes"*
 
-To use task-app from a session in any folder, install the skill:
+In this folder the agent follows `AGENTS.md`. To get the same behaviour from a session in any
+other folder, install the skill.
 
-- **Claude:** run `npm run skill:pack` and upload `task-app-skill.zip` in the Claude app under
-  Settings → Skills. Re-upload it after changing anything in `skill/`.
-- **Other agents:** point your agent's skills directory at `skill/task-app`, or copy it there.
+## The agent skill
+
+[`skill/task-app/`](./skill/task-app) is an [Agent Skill](https://agentskills.io): a folder with
+a `SKILL.md` that agents load when a request matches its description, plus the routines it
+refers to. `AGENTS.md` covers working in this repo. The skill is what makes *"add: renew my
+passport by end of October"* work from any session: a chat in the Claude app, a Claude Code
+session in another project, or a scheduled run.
+
+```
+skill/task-app/
+  SKILL.md                 # when to trigger, ground rules, command reference, the data model,
+                           # time and working hours, capture and connector conventions
+  routines/
+    morning-plan.md        # "plan my day": proposed top 3, focus blocks, follow-ups (## Plan)
+    meeting-prep.md        # compact context for today's meetings (## Meetings)
+    shutdown.md            # "wrap up": done, carry-over, to capture, draft top 3 (## Shutdown)
+    weekly-review.md       # "weekly review": the checklist, plus Friday's shutdown (## Weekly Review)
+    meeting-capture.md     # "process my notes": notes → tasks and waiting-ons, after a yes
+```
+
+The skill uses the same rules as `AGENTS.md`: never hand-edit task lines, and propose before
+acting. It needs a shell on the machine that holds the vault, with `task-app` on the PATH, so
+it won't work in a browser-only or sandboxed session. Gmail, Calendar and Slack steps use
+whatever connectors the session has. If one is missing, the routine skips that step and says
+so.
+
+**Personal settings.** Nothing personal is baked in. The timezone is the machine's own
+(`date +%Z`), and the working day defaults to 08:30–17:30, Monday to Friday. To change either,
+tell the agent: put it in your agent's memory or user-level instructions (for example
+`~/.claude/CLAUDE.md`), e.g. *"I work 09:00–17:00 and I'm in Europe/London"*. The skill
+prefers what you've said over its defaults.
+
+**Installing it**
+
+- **Claude app (chat, Cowork, scheduled tasks):** run `npm run skill:pack` and upload
+  `task-app-skill.zip` under Settings → Skills. The app keeps its own copy, so re-upload after
+  changing anything in `skill/`.
+- **Claude Code:** link it into your personal skills folder so it follows the repo:
+  `ln -s "$PWD/skill/task-app" ~/.claude/skills/task-app`
+- **Other agents:** link or copy `skill/task-app` into your agent's skills directory. If your
+  agent doesn't support skills, point it at `SKILL.md` from its instructions file.
 
 ### Daily routines
 
-The routines in [`skill/task-app/routines/`](./skill/task-app/routines) set how the day runs.
-You can run each one on request or put it on a schedule.
+The routines set how the day runs. You can run each one on request or put it on a schedule;
+the times below are suggestions, and the routines work whenever they run.
 
 | Routine | Suggested schedule | Writes to the daily note |
 | --- | --- | --- |

@@ -1,9 +1,9 @@
 # Routine: meeting context for the daily note
 
 Goal: a `## Meetings` section in today's daily note that gives the user just enough to walk
-into each meeting: what it's for, what's live, and what to raise. This is a compact version of
-the standalone `meeting-prep` skill, with the same rules for sourcing. Use that skill instead
-when the user asks for a full brief on one meeting.
+into each meeting: what it's for, what's live, and what to raise. If the user has a standalone
+meeting-prep skill, this is a compact version with the same sourcing rules; use that skill
+instead when they ask for a full brief on one meeting.
 
 Runs as step 3 of the morning plan, or on demand ("add prep for my 2pm to the note"). It's
 read-only apart from `task-app note write`.
@@ -61,9 +61,9 @@ to be succinct:
 - Raise: who owns sprint planning after Robin K
 
 **10:00 Jordan Lee: intro** (Zb4hTy6N)
-- For: introductions; understand his area (invite)
+- For: introductions; understand their area (invite)
 - Live: Jordan hasn't accepted yet
-- Raise: where he sees delivery gaps
+- Raise: where they see delivery gaps
 
 _No prep: All Hands 13:30 · Team drinks 16:00 (tentative)_
 ```
