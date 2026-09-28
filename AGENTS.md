@@ -143,6 +143,7 @@ follow it**:
 - `shutdown.md`: "wrap up", or the 16:30 Mon–Thu scheduled task
 - `weekly-review.md`: "weekly review", or the Friday 16:00 scheduled task (it includes Friday's shutdown)
 - `meeting-capture.md`: "process my notes", on demand only
+- `triage-inbox.md`: "triage my inbox", on demand (the weekly review includes it; the shutdown offers it when items go stale)
 
 Rules they all share: **propose, then act.** The user confirms the top 3 before
 `task-app focus` runs, and calendar focus blocks are created only after an explicit yes.

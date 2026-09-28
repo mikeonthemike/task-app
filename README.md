@@ -142,6 +142,7 @@ skill/task-app/
     shutdown.md            # "wrap up": done, carry-over, to capture, draft top 3 (## Shutdown)
     weekly-review.md       # "weekly review": the checklist, plus Friday's shutdown (## Weekly Review)
     meeting-capture.md     # "process my notes": notes → tasks and waiting-ons, after a yes
+    triage-inbox.md        # "triage my inbox": a home for every Inbox item, applied after a yes
 ```
 
 The skill uses the same rules as `AGENTS.md`: never hand-edit task lines, and propose before
@@ -177,6 +178,7 @@ the times below are suggestions, and the routines work whenever they run.
 | Shutdown | Mon–Thu 16:30 | `## Shutdown`: done, carry-over, actions to capture, draft top 3 for tomorrow |
 | Weekly review | Fri 16:00 (includes Friday's shutdown) | `## Weekly Review`: Inbox, waiting-on, goal health, next week |
 | Meeting-notes capture | on demand ("process my notes") | nothing: proposes tasks, adds them when you say yes |
+| Inbox triage | on demand ("triage my inbox"); part of the weekly review | nothing: proposes a home for each Inbox item, files them when you say yes |
 
 Meeting-notes capture uses judgment: it classifies each action as a task, a waiting-on item or
 a skip, dedups by meaning, and writes clean titles. `task-app capture` is the blunt fallback. It
