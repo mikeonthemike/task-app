@@ -1,7 +1,7 @@
 ---
 name: task-app
 description: Manages the user's personal productivity system, a Things-style task manager stored as markdown in their Obsidian vault, via the local `task-app` CLI (never by hand-editing vault files). Trigger whenever the user wants to add/capture/jot down a task, even casually ("remind me to...", "I need to...", "add to my list", "waiting on X for Y"); asks what's on their plate, agenda, focus or to-do list, today/this week/overdue/upcoming; wants a morning plan, top 3, evening shutdown, or weekly review; asks about their goals or what they're waiting on; wants actions pulled from their meeting notes ("process my notes"), or asks you to check Gmail/Calendar/Slack for anything actionable; wants to mark something done, reopen it, or move it between projects/areas; wants focus time blocked in their calendar; or wants to clean up/archive finished tasks. Also trigger on "my Obsidian tasks"/"my daily note" in a to-do or planning context. Needs the `task-app` CLI and a shell tool — check with `task-app help` first.
-compatibility: Needs a Bash/terminal tool on the user's Mac and the `task-app` CLI on PATH (installed via `npm link` from ~/code/task-app). Not usable in a browser-only or sandboxed (e.g. Cowork VM) session with no access to the host shell.
+compatibility: Works with any agent that can run shell commands on the machine that holds the vault, with the `task-app` CLI on PATH (installed via `npm link` from a clone of the task-app repo). Not usable in a browser-only or sandboxed session with no access to the host shell. Gmail/Calendar/Slack steps use whatever connectors the session has, and are skipped (and said so) when one is missing.
 ---
 
 # task-app
@@ -23,7 +23,7 @@ with explicit flags.
   the daily note and chat; they never set focus, create calendar events, send messages, or
   reorganise tasks.
 - Before first use in a session, run `task-app help`. Shells used by tools often don't source
-  `~/.zshrc`, so if `task-app` is "not found", retry with `"$HOME/.npm-global/bin/task-app"`
+  `~/.zshrc`, so if `task-app` is "not found", retry with `"$(npm prefix -g)/bin/task-app"`
   before concluding it's missing. Don't reinstall or reconfigure it yourself. (The config lives
   at `~/.config/task-app/config.json`; setup is `task-app init`.)
 - If a command fails with "is no longer in …" or "appears N times", run `task-app doctor`, show
@@ -54,9 +54,19 @@ task-app doctor [--fix] [--json]  # vault health check
 ```
 
 Use `--json` whenever you're reasoning over tasks, and plain output only when relaying state
-to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`; the user is in
-Pacific/Auckland). Project and area names must match existing ones exactly, so check
+to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`, and see
+"Time and working hours" below). Project and area names must match existing ones exactly, so check
 `task-app list all --json` or `task-app review --json` → `projects` before using a new name.
+
+## Time and working hours
+
+- **Timezone**: the machine's local timezone (`date +%Z`), unless the user has told you otherwise.
+  Use it for "today", calendar ranges and every time you write.
+- **Working day**: 08:30–17:30, Monday–Friday, unless the user's own instructions (their
+  memory, `AGENTS.md`/`CLAUDE.md`, or what they've said in chat) give different hours. Free
+  blocks and capacity checks only count time inside the working day.
+- **Routine times** (08:30 plan, 16:30 shutdown, Friday 16:00 review) are suggested schedules.
+  Whatever runs them decides when they fire; the routines work at any time of day.
 
 ## The model
 
@@ -88,8 +98,9 @@ Each routine has its own file next to this one. Read the relevant file and follo
 | "Process my notes", "capture actions from…" | Meeting-notes capture | `routines/meeting-capture.md` |
 | Part of the morning plan, or "add meeting prep to my note" | Meeting context (`## Meetings`) | `routines/meeting-prep.md` |
 
-A full brief on one meeting that isn't going into the note ("prep me for my 2pm") belongs to the
-standalone `meeting-prep` skill, not this one.
+A full brief on one meeting that isn't going into the note ("prep me for my 2pm") belongs to a
+standalone meeting-prep skill if the user has one. Otherwise, brief them in chat using the same
+sourcing rules as `routines/meeting-prep.md`.
 
 `task-app capture` is not the meeting-capture routine — it's a blunter, mechanical fallback that
 adds every `## Actions` bullet verbatim, no classification or dedup-by-meaning. Use

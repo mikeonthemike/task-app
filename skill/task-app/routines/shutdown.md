@@ -1,10 +1,10 @@
-# Routine: evening shutdown (Mon–Thu 16:30; Friday is folded into the weekly review)
+# Routine: evening shutdown (suggested Mon–Thu 16:30; Friday's is folded into the weekly review)
 
 Goal: close the day in the daily note's `## Shutdown` section: what got done, what's
 carrying over, what needs capturing, and a **draft** top 3 for tomorrow. Report and propose
 only: no edits to tasks during an unattended run.
 
-Timezone: Pacific/Auckland. Today = `date +%F`.
+Timezone and working day: see the skill's "Time and working hours". Today = `date +%F`.
 
 ## 1. Gather (read-only)
 
@@ -14,7 +14,7 @@ task-app note show --json       # today's Plan (what was intended) and any exist
 task-app notes --json           # notes changed today: ## Actions + already-captured tasks
 ```
 
-Calendar: tomorrow's events (Pacific/Auckland), to judge tomorrow's capacity and spot
+Calendar: tomorrow's events (local time), to judge tomorrow's capacity and spot
 anything needing prep.
 
 ## 2. Work out
@@ -54,5 +54,4 @@ Pipe into `task-app note write --section Shutdown`:
 ```
 
 Omit empty blocks. Finish in chat with the same summary and offer: *"Want me to capture any of
-those, or adjust tomorrow's three?"* On a yes, capture per the task-app skill's "Capturing from
-meeting notes" rules.
+those, or adjust tomorrow's three?"* On a yes, capture per `meeting-capture.md`.

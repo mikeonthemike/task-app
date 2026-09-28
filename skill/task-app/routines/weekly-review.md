@@ -1,4 +1,4 @@
-# Routine: weekly review (Friday 16:00)
+# Routine: weekly review (suggested Friday 16:00)
 
 Goal: a clean slate for next week. Everything is captured, the Inbox is empty or has a
 proposal for each item, follow-ups are chased, each goal has a next action, and there's an
@@ -6,7 +6,8 @@ honest read on the week. It also covers Friday's shutdown. The output goes to Fr
 note under `## Weekly Review`. **Propose only**: list proposed moves, dates and drops, and
 apply them only when the user says so.
 
-Timezone: Pacific/Auckland. Today = `date +%F`; the week = the last 7 days.
+Timezone and working day: see the skill's "Time and working hours". Today = `date +%F`; the
+week = the last 7 days.
 
 ## 1. Gather (read-only)
 
@@ -40,7 +41,7 @@ Calendar: next week's events (Mon–Fri), to judge next week's capacity.
 
 Pipe into `task-app note write --section "Weekly Review"`. Use the checklist headings, skip any
 that are clean ("Inbox: empty ✓" is enough), and keep it to about one screen. Include Friday's
-shutdown lines (done / carry-over) at the top, since the 16:30 shutdown doesn't run on Fridays.
+shutdown lines (done / carry-over) at the top, since the regular shutdown doesn't run on Fridays.
 
 Finish in chat: the 3–5 decisions the user needs to make, as a numbered list they can answer
 with "1 yes, 2 Someday, …". Apply the answers with the CLI (`move`, `edit --followup`,

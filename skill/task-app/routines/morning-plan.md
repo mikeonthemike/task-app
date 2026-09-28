@@ -1,10 +1,11 @@
 # Routine: morning plan
 
-Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, that the user (and their Cowork
-morning brief) can read in 30 seconds. **Propose only**: the user confirms the top 3 before
+Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, that the user (and anything else
+that reads the note, such as a morning-brief skill) can read in 30 seconds. **Propose only**: the user confirms the top 3 before
 anything is marked, and calendar blocks are never created without an explicit yes.
 
-Timezone: Pacific/Auckland. Get today's date from `date +%F`.
+Use the timezone and working day from the skill's "Time and working hours". Get today's date
+from `date +%F`.
 
 ## 1. Gather (read-only)
 
@@ -14,9 +15,9 @@ task-app note show --json                           # today's note: does a Plan 
 task-app note show --previous --section Shutdown    # last workday's shutdown: carry-overs + draft top 3
 ```
 
-Calendar (your Google Calendar connector, `list_events` on the primary calendar): today
-00:00 → 23:59 Pacific/Auckland. Work out the meetings, then the **free blocks of 45 minutes
-or more** between 08:30 and 17:30. Ignore events the user declined. Treat tentative or
+Calendar (your calendar connector, e.g. Google Calendar, on the user's primary calendar): today
+00:00 → 23:59 local time. Work out the meetings, then the **free blocks of 45 minutes
+or more** inside the working day. Ignore events the user declined. Treat tentative or
 unanswered events as soft busy time (plan around them, but say so), and all-day events as
 context, not busy time.
 
@@ -78,7 +79,7 @@ or `Before` item (no more). Then ask: *"Confirm these three, or swap any?
 I can also book the focus blocks."* When the user replies (this session or later):
 - confirm or swap → `task-app focus <id> <id> <id>`, then rewrite the Plan's first line to
   `_Confirmed HH:MM._`
-- "book the blocks" → create one Calendar event per block, titled `Focus: <task title>`, with
+- "book the blocks" → create one calendar event per block, titled `Focus: <task title>`, with
   the task id in the description. Check for an existing `Focus:` event in that slot first, so
   booking twice doesn't duplicate.
 
