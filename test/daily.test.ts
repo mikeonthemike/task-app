@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
 import { parseArgs } from "../src/core/cliArgs.js";
+import { quickParse } from "../src/core/quickParse.js";
 import { proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
 import { loadGoals, resolveGoal, updateProjectMeta } from "../src/core/goals.js";
 import { estimateTags, focusTags, parseDuration, waitingOn, waitingTags } from "../src/core/meta.js";
@@ -230,8 +231,44 @@ describe("CLI end to end", () => {
     assert.equal(json.sections.Plan, "1. Focus one\n2. Focus two");
   });
 
+  test("add with any flag keeps the title verbatim and guesses no date", () => {
+    const titles = [
+      "Add dry runs (week of 12 Oct), go/no-go checklist and rollout waves to the CRM plan",
+      "Confirm the Acme plugin needs no client action; plan weekend cutover cover",
+    ];
+    cli(["add", titles[0], "--project", "CRM", "--notes", "context"]);
+    cli(["add", titles[1], "--tag", "work"]);
+    cli(["add", "Book the venue for Friday", "--literal"]);
+    const tasks = JSON.parse(cli(["list", "all", "--json"]));
+    assert.deepEqual(tasks.map((t: { title: string }) => t.title).sort(), [...titles, "Book the venue for Friday"].sort());
+    for (const t of tasks) assert.equal(t.scheduled, null, t.title);
+  });
+
+  test("add with no flags still moves a date phrase out of the title", () => {
+    cli(["add", "Call Sam tomorrow"]);
+    const [t] = JSON.parse(cli(["list", "all", "--json"]));
+    assert.equal(t.title, "Call Sam");
+    assert.equal(t.scheduled, addDays(todayStr(), 1));
+  });
+
   test("unknown goal is rejected with the valid names", () => {
     assert.throws(() => cli(["add", "X", "--goal", "Nope"]), /Unknown goal "Nope"/);
+  });
+});
+
+describe("quickParse fallback", () => {
+  const monday = new Date(2026, 8, 28, 9, 0); // 2026-09-28
+
+  test("never infers a past date", () => {
+    assert.equal(quickParse("plan weekend cutover cover", monday).scheduled, "2026-10-03");
+    assert.equal(quickParse("Review the deck friday", monday).scheduled, "2026-10-02");
+    assert.equal(quickParse("Send the report yesterday", monday).scheduled, undefined);
+    assert.equal(quickParse("Send the report yesterday", monday).title, "Send the report yesterday");
+  });
+
+  test("pulls the date out and tidies empty brackets", () => {
+    assert.deepEqual(quickParse("Dry runs (12 Oct) for CRM", monday), { title: "Dry runs for CRM", scheduled: "2026-10-12" });
+    assert.deepEqual(quickParse("No date here", monday), { title: "No date here" });
   });
 });
 
