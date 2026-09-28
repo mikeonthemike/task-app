@@ -28,6 +28,8 @@ anything needing prep.
 - **Draft top 3 for tomorrow**: carry-overs first if still right, then due-soon, then goal
   work. Check against tomorrow's free time.
 - **Prep for tomorrow**: meetings tomorrow that need something read or decided today.
+- **Inbox**: only if any item is `stale` (3+ days). Give a count, not a list; the offer
+  below covers it.
 
 ## 3. Write
 
@@ -51,7 +53,10 @@ Pipe into `task-app note write --section Shutdown`:
 3. …
 
 **Tomorrow**: 3 meetings, 3h free; prep: skim the pen-test scope before the 10:00
+
+**Inbox**: 4 items, 2 stale
 ```
 
 Omit empty blocks. Finish in chat with the same summary and offer: *"Want me to capture any of
-those, or adjust tomorrow's three?"* On a yes, capture per `meeting-capture.md`.
+those, or adjust tomorrow's three?"* On a yes, capture per `meeting-capture.md`. If the Inbox
+had stale items, also offer to triage it (`triage-inbox.md`).

@@ -25,8 +25,8 @@ Calendar: next week's events (Mon–Fri), to judge next week's capacity.
 ## 2. Work through the checklist
 
 1. **Capture**: action lines in this week's notes that no captured task covers.
-2. **Inbox**: for each item, propose a destination (project/area/Someday), a date, or a drop.
-   Items older than 3 days get flagged.
+2. **Inbox**: follow `triage-inbox.md` (propose only): a destination for each item
+   (project/area/Someday/waiting-on), or a drop. Items older than 3 days get flagged.
 3. **Waiting-on**: follow-ups overdue, and waits with no follow-up date (propose one).
 4. **Goals**: for each goal, what moved this week (done tasks), and whether it has a next
    action. A goal with `noActiveTask` needs one: suggest a concrete first step drawn from the

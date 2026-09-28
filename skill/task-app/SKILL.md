@@ -96,6 +96,7 @@ Each routine has its own file next to this one. Read the relevant file and follo
 | End of day, or "shut down" / "wrap up the day" | Evening shutdown | `routines/shutdown.md` |
 | Friday afternoon, or "weekly review" | Weekly review | `routines/weekly-review.md` |
 | "Process my notes", "capture actions from…" | Meeting-notes capture | `routines/meeting-capture.md` |
+| "Triage my inbox" / "clear the inbox"; step 2 of the weekly review | Inbox triage | `routines/triage-inbox.md` |
 | Part of the morning plan, or "add meeting prep to my note" | Meeting context (`## Meetings`) | `routines/meeting-prep.md` |
 
 A full brief on one meeting that isn't going into the note ("prep me for my 2pm") belongs to a
