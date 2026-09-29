@@ -4,6 +4,7 @@ import { CaptureInput } from "./Capture";
 import { longDate } from "./format";
 import { ListPicker } from "./ListPicker";
 import { ListView } from "./ListView";
+import { TaskMenu, TaskMenuContext, type MenuTarget } from "./TaskMenu";
 import { TaskRow } from "./TaskRow";
 import { useSnapshot } from "./useSnapshot";
 
@@ -12,6 +13,7 @@ export function Popover() {
   const [error, setError] = useState<string | null>(null);
   const [list, setList] = useState<ListId>("today");
   const [picking, setPicking] = useState(false);
+  const [menu, setMenu] = useState<MenuTarget | null>(null);
 
   // Like h/l in the TUI: ←/→ step through the lists (unless you're typing). Esc backs out.
   useEffect(() => {
@@ -57,6 +59,7 @@ export function Popover() {
   const subtitle = current?.kind === "project" ? "Project" : current?.kind === "area" ? "Area" : current?.count ? `${current.count} open` : "";
 
   return (
+    <TaskMenuContext.Provider value={setMenu}>
     <div className="popover">
       <header>
         <div>
@@ -152,6 +155,7 @@ export function Popover() {
       </main>
 
       {error && <div className="toast">{error}</div>}
+      {menu && <TaskMenu target={menu} lists={snap.lists} onClose={() => setMenu(null)} onError={setError} />}
 
       <footer>
         <CaptureInput today={snap.date} />
@@ -160,5 +164,6 @@ export function Popover() {
         </span>
       </footer>
     </div>
+    </TaskMenuContext.Provider>
   );
 }

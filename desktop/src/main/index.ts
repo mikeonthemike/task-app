@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, Tray } from "electron";
-import type { ListId, Snapshot } from "../shared/api.js";
+import type { ListId, MoveDest, Snapshot } from "../shared/api.js";
 import { VaultService } from "./vaultService.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -170,6 +170,7 @@ function registerIpc(): void {
   ipcMain.handle("list:get", (_e, id: ListId) => vault.list(id));
   ipcMain.handle("task:complete", (_e, id: string) => vault.complete(id));
   ipcMain.handle("task:uncomplete", (_e, id: string) => vault.uncomplete(id));
+  ipcMain.handle("task:move", (_e, id: string, dest: MoveDest) => vault.move(id, dest));
   ipcMain.handle("capture:add", (_e, text: string) => vault.capture(text));
   ipcMain.handle("capture:preview", (_e, text: string) => vault.previewCapture(text));
   ipcMain.handle("open:task", (_e, id: string) => openUrl(vault.obsidianUrlForTask(id)));

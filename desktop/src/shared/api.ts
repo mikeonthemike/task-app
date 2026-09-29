@@ -64,6 +64,13 @@ export interface Result {
   error?: string;
 }
 
+/** Where a task can be filed: exactly one of these, or none for the Inbox. */
+export interface MoveDest {
+  project?: string;
+  area?: string;
+  someday?: boolean;
+}
+
 export interface CapturePreview {
   title: string;
   scheduled: string | null;
@@ -75,6 +82,7 @@ export interface TaskAppApi {
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   complete(id: string): Promise<Result>;
   uncomplete(id: string): Promise<Result>;
+  move(id: string, dest: MoveDest): Promise<Result>;
   capture(text: string): Promise<Result>;
   previewCapture(text: string): Promise<CapturePreview>;
   openTask(id: string): Promise<void>;

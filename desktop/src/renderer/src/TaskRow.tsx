@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { WidgetTask } from "../../shared/api";
 import { metaParts } from "./format";
+import { useTaskMenu } from "./TaskMenu";
 
 interface Props {
   task: WidgetTask;
@@ -15,6 +16,7 @@ interface Props {
 export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
   // Show the tick straight away; the vault write and rescan follow a moment later.
   const [pending, setPending] = useState(false);
+  const openMenu = useTaskMenu();
   const checked = pending ? !task.done : task.done;
 
   async function toggle() {
@@ -28,7 +30,17 @@ export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
 
   const meta = compact ? [] : metaParts(task, today, hideWhere);
   return (
-    <li className={`row${checked ? " done" : ""}`}>
+    <li
+      className={`row${checked ? " done" : ""}`}
+      onContextMenu={
+        compact
+          ? undefined
+          : (e) => {
+              e.preventDefault();
+              openMenu({ task, x: e.clientX, y: e.clientY });
+            }
+      }
+    >
       <button className={`check${task.focus ? " focus" : ""}`} aria-label={checked ? "Mark not done" : "Mark done"} aria-pressed={checked} onClick={toggle}>
         {checked && (
           <svg viewBox="0 0 12 12" aria-hidden="true">
