@@ -8,7 +8,8 @@
   --urgent: #c9302c;
   --field: rgba(255, 255, 255, 0.6);
   --pill-bg: rgba(250, 250, 252, 0.92);
-  --menu-bg: #fbfbfd;
+  --glass-bg: rgba(250, 250, 252, 0.94);
+  --glass-edge: rgba(255, 255, 255, 0.7);
   --toast-bg: #1d1d1f;
   --toast-text: #fff;
   color-scheme: light dark;
@@ -25,7 +26,8 @@
     --urgent: #ff6961;
     --field: rgba(0, 0, 0, 0.25);
     --pill-bg: rgba(40, 40, 44, 0.92);
-    --menu-bg: #2c2c30;
+    --glass-bg: rgba(44, 44, 48, 0.94);
+    --glass-edge: rgba(255, 255, 255, 0.14);
     --toast-bg: #f5f5f7;
     --toast-text: #1d1d1f;
   }
@@ -123,22 +125,29 @@ h1 {
   transform: rotate(180deg);
 }
 
-/* The list picker covers the content area, like a menu. */
-.popover main {
+/* The content area is a fixed frame: <main> scrolls inside it, and the list picker floats over
+   it, so opening the picker at the bottom of a long list still shows it just under the header. */
+.content {
   position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.picker-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
 
 .picker {
   position: absolute;
   inset: 0 8px auto;
-  max-height: 100%;
+  max-height: calc(100% - 8px);
   overflow-y: auto;
-  z-index: 1;
+  z-index: 2;
   padding: 4px;
-  border-radius: 10px;
-  border: 1px solid var(--faint);
-  background: var(--menu-bg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .picker button {
@@ -209,6 +218,7 @@ h1 {
 
 .popover main {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0 8px 8px;
 }
@@ -292,6 +302,19 @@ details[open] > summary::before {
   border-radius: 8px;
   background: var(--hover);
   color: var(--urgent);
+}
+
+/* Floating menus are frosted like the popover's own vibrancy: translucent, blurring the tasks underneath. */
+.picker,
+.menu {
+  border-radius: 12px;
+  border: 1px solid var(--faint);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 /* ---- Task rows ---- */
@@ -532,10 +555,6 @@ body[data-view="pill"] {
   z-index: 11;
   overflow-y: auto;
   padding: 4px;
-  border-radius: 10px;
-  border: 1px solid var(--faint);
-  background: var(--menu-bg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .menu button {
