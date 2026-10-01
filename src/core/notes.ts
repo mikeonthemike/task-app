@@ -21,6 +21,8 @@ export interface NoteInfo {
   projects: string | null; // frontmatter `Projects`
   area: string | null;
   actions: string | null; // body of ## Actions, if present and non-empty
+  /** Bullets in ## Actions that `capture` would treat as actions (see actionBullets). */
+  actionCount: number;
   /** Tasks already captured from this note (their notes say "From: <name>.md" or "From: [[<name>]]"). */
   captured: { id: string; title: string; done: boolean }[];
   body?: string;
@@ -99,6 +101,7 @@ export function scanNotes(
       projects: asString(data.Projects ?? data.projects),
       area: asString(data.area),
       actions: actions || null,
+      actionCount: actions ? actionBullets(actions).length : 0,
       captured: tasks.filter((t) => capturedFrom(t, name)).map((t) => ({ id: t.id, title: t.title, done: t.done })),
       ...(opts.includeBody ? { body: content.trim() } : {}),
     });

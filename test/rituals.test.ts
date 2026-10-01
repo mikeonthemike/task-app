@@ -90,10 +90,18 @@ describe("meeting notes scan", () => {
     assert.deepEqual(notes.map((n) => n.path).sort(), ["2026-09-23.md", "Intros/Intro with Sam.md"]);
     const sam = notes.find((n) => n.name === "Intro with Sam")!;
     assert.equal(sam.actions, "- Agree WOW\n- Send deck");
+    assert.equal(sam.actionCount, 2);
     assert.equal(sam.projects, "CRM");
     assert.equal(sam.date, "2026-09-23");
     assert.deepEqual(sam.captured.map((c) => c.title), ["Agree WOW with Sam"]);
     assert.equal(notes.find((n) => n.name === "2026-09-23")!.kind, "daily");
+  });
+
+  test("actionCount ignores empty bullets, labels and placeholders, matching capture", () => {
+    write("Catch up.md", "## Actions\n- [ ] Send deck\n- [ ]\n- [x] Done already\n- set up meetings:\n  - Book room\n- <Insert Actions>\n");
+    const note = scanNotes(config, [], { since: "2000-01-01" }).find((n) => n.name === "Catch up")!;
+    assert.equal(note.actionCount, 2);
+    assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 2);
   });
 
   test("--since filters by modification date", () => {

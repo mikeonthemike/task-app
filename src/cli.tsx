@@ -459,7 +459,7 @@ async function main(): Promise<void> {
     if (args.bool("json")) return console.log(JSON.stringify(notes, null, 2));
     if (!notes.length) return console.log(`(no notes changed since ${since})`);
     for (const n of notes) {
-      const actions = n.actions ? `${n.actions.split("\n").filter((l) => l.trim()).length} action line(s)` : "no ## Actions";
+      const actions = n.actions ? `${n.actionCount} action(s)` : "no ## Actions";
       console.log(`${n.modified}  ${n.path}  — ${actions}, ${n.captured.length} task(s) captured`);
     }
     return;
