@@ -31,7 +31,7 @@ task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|wa
 task-app complete <id>
 task-app uncomplete <id>
 task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] [--recurrence R|none] [--tag T] \
-  [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none]
+  [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none] [--notes "..."]   # --notes adds a line
 task-app move <id> [--project P | --area A | --someday | --inbox]
 task-app focus <id> [<id> <id>]   # sets EXACTLY these as today's top 3 (untags the rest); --add/--remove/--clear; no args = show
 task-app goals [--json]           # goals + open/focus/done-in-7-days counts

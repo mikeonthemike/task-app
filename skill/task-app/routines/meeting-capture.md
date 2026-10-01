@@ -21,7 +21,10 @@ For each note:
    - neither (an FYI or a decision already made) → skip it
 4. File it. The note's frontmatter `Projects:` → `--project` if it matches an existing project
    exactly; else `area:` → `--area`; else the Inbox. `--goal` only when the link is obvious.
-5. Always pass `--notes "From: <note name>.md"`. That's what dedup keys on next time.
+5. Always pass `--notes "From: <note name>.md"`. That's what dedup keys on next time. When
+   you skip an action because an existing task already covers it, link that task instead:
+   `task-app edit <id> --notes "From: <note name>.md"`. Otherwise the note still looks
+   unprocessed and `task-app capture` would add the action again.
 
 In an interactive session, show the list first (title, where it'll be filed, waiting/follow-up)
 and add after a yes. Adding without asking is fine when the user has already approved that

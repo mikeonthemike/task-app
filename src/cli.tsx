@@ -130,6 +130,7 @@ Usage:
     --title <text> --due <date|none> --scheduled <date|none> --start <date|none>
     --priority <level|none> --recurrence <text|none> --tag <tag> (repeatable, adds)
     --goal <goal|none> --waiting <person|none> --followup <date|none> --est <dur|none>
+    --notes <text> (repeatable, adds a note line; skips one the task already has)
 
   task-app focus [<id>...] [--force] Set exactly these as today's top ${MAX_FOCUS} (#focus).
     --add <id> | --remove <id> | --clear   No args: show current focus.
@@ -315,7 +316,8 @@ async function main(): Promise<void> {
     const tags = applyMetaFlags(store, [...existing.tags, ...args.many("tag").map(normalizeTag)], args);
     if (tags.join(" ") !== existing.tags.join(" ")) patch.tags = tags;
 
-    const task = store.edit(id, patch);
+    store.edit(id, patch);
+    const task = store.addNotes(id, args.many("notes"));
     console.log(`Updated: ${formatTask(task!)}`);
     return;
   }

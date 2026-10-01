@@ -402,6 +402,18 @@ export function insertAbove(anchor: Task, newTask: Task): Task {
   return placed;
 }
 
+/** Appends note lines after a task's existing notes, at the same indent the scan reads them from. */
+export function appendNotes(task: Task, notes: string[]): Task {
+  const lines = readFileSync(task.location.file, "utf8").split("\n");
+  const index = locateLine(task, lines);
+  const indent = /^(\s*)/.exec(lines[index])![1];
+  let end = index + 1;
+  while (end < lines.length && /^\s{2,}\S/.test(lines[end]) && !CHECKBOX_RE.test(lines[end])) end++;
+  lines.splice(end, 0, ...notes.map((n) => `${indent}  ${n}`));
+  writeFileAtomic(task.location.file, lines.join("\n"));
+  return { ...task, notes: [...task.notes, ...notes], location: { ...task.location, lineIndex: index } };
+}
+
 /** Removes a task's line (and its trailing note lines) from its file entirely. */
 export function deleteTaskLine(task: Task): void {
   const lines = readFileSync(task.location.file, "utf8").split("\n");
