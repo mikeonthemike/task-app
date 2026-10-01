@@ -224,6 +224,19 @@ describe("CLI end to end", () => {
     assert.equal(after.estimateMinutes, null);
   });
 
+  test("edit --notes appends note lines after existing ones and skips duplicates", () => {
+    cli(["add", "Sit down with Sam", "--area", "Work", "--notes", "From: Intro with Mark.md"]);
+    write("Tasks/Areas/Work.md", readFileSync(join(config.vaultPath, "Tasks/Areas/Work.md"), "utf8") + "- [ ] Next task\n");
+    const [t] = JSON.parse(cli(["list", "all", "--json"])).filter((x: { title: string }) => x.title === "Sit down with Sam");
+    cli(["edit", t.id, "--notes", "From: Intro with Sam.md", "--title", "Sit down with Sam and Alex"]);
+    cli(["edit", t.id, "--notes", "From: Intro with Sam.md"]);
+    const after = JSON.parse(cli(["list", "all", "--json"]));
+    const sam = after.find((x: { id: string }) => x.id === t.id);
+    assert.equal(sam.title, "Sit down with Sam and Alex");
+    assert.deepEqual(sam.notes, ["From: Intro with Mark.md", "From: Intro with Sam.md"]);
+    assert.ok(after.some((x: { title: string }) => x.title === "Next task"));
+  });
+
   test("note write reads the body from stdin", () => {
     cli(["note", "write", "--section", "Plan", "--date", "2026-09-24"], "1. Focus one\n2. Focus two\n");
     assert.equal(cli(["note", "show", "--section", "Plan", "--date", "2026-09-24"]).trim(), "1. Focus one\n2. Focus two");
