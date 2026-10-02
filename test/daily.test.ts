@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
-import { parseArgs } from "../src/core/cliArgs.js";
+import { parseArgs, parseFullEdit, tokenize } from "../src/core/cliArgs.js";
 import { quickParse } from "../src/core/quickParse.js";
 import { proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
 import { loadGoals, resolveGoal, updateProjectMeta } from "../src/core/goals.js";
@@ -71,6 +71,15 @@ describe("tag metadata", () => {
     assert.deepEqual(args.positional, ["Call", "Sam"]);
     assert.equal(args.one("est"), "30m");
     assert.ok(args.bool("focus") && args.bool("someday"));
+  });
+});
+
+describe("full edit line", () => {
+  test("--notes adds notes and isn't treated as a field to clear", () => {
+    const task = { title: "Sit down with Sam", notes: ["From: A.md"] } as Parameters<typeof parseFullEdit>[0];
+    const edit = parseFullEdit(task, parseArgs(tokenize('--title "Sit down with Sam" --notes "From: B.md"')));
+    assert.deepEqual(edit.notes, ["From: B.md"]);
+    assert.deepEqual(parseFullEdit(task, parseArgs(tokenize('--title "Sit down with Sam"'))).notes, []);
   });
 });
 

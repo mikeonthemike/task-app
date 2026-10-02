@@ -94,10 +94,12 @@ export function formatTask(t: Task): string {
  * desired state for a task, treating an omitted field as "clear it" rather than
  * "leave unchanged" — this is meant for an editor that's pre-filled with the task's
  * current values, where deleting a flag is how the user expresses clearing it.
+ * `--notes` is the exception: it isn't pre-filled and only adds, as on `task-app edit`.
  */
 export interface FullEditResult {
   fieldPatch: Pick<Task, "title" | "due" | "scheduled" | "start" | "priority" | "recurrence">;
   dest: { project: string | null; area: string | null; someday: boolean };
+  notes: string[];
 }
 
 export function parseFullEdit(task: Task, args: ParsedArgs): FullEditResult {
@@ -122,5 +124,6 @@ export function parseFullEdit(task: Task, args: ParsedArgs): FullEditResult {
       area: project ? null : (args.one("area") ?? null),
       someday: args.bool("someday"),
     },
+    notes: args.many("notes"),
   };
 }

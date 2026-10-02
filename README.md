@@ -198,7 +198,7 @@ Everything works without an agent too, just without the judgment.
 | `j` / `k` or ↑/↓ | move the selection |
 | `space` / `enter` | complete the selected task |
 | `a` | quick-add (plain text; a date like "tomorrow" is picked up) |
-| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field |
+| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field, or add `--notes "…"` to add a note |
 | `x` | sweep completed tasks into `Logbook.md` |
 | `c` | capture `## Actions` bullets from untouched notes (see `task-app capture`) |
 | `q` / `esc` | quit |
