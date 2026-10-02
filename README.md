@@ -198,7 +198,7 @@ Everything works without an agent too, just without the judgment.
 | `j` / `k` or ↑/↓ | move the selection |
 | `space` / `enter` | complete the selected task |
 | `a` | quick-add (plain text; a date like "tomorrow" is picked up) |
-| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field |
+| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field, or add `--notes "…"` to add a note |
 | `x` | sweep completed tasks into `Logbook.md` |
 | `c` | capture `## Actions` bullets from untouched notes (see `task-app capture`) |
 | `q` / `esc` | quit |
@@ -254,7 +254,7 @@ A task line:
 | `add <title> [flags]` | Add a task. Flags: `--project`, `--area`, `--due`, `--scheduled`, `--start`, `--priority`, `--recurrence`, `--tag` (repeatable), `--notes`, `--someday`, `--goal`, `--focus`, `--waiting <person>`, `--followup`, `--est` |
 | `list [view] [--json]` | `inbox`, `today` (default), `overdue`, `upcoming`, `anytime`, `someday`, `logbook`, `all`, `focus`, `waiting`, `project:<name>`, `area:<name>`, `goal:<name>` |
 | `complete` / `uncomplete <id>` | Tick or untick a task (recurring tasks spawn their next occurrence) |
-| `edit <id> [flags]` | Change fields in place; pass `none` to clear one |
+| `edit <id> [flags]` | Change fields in place; pass `none` to clear one. `--notes` adds a note line, skipping one the task already has |
 | `move <id>` | `--project`, `--area`, `--someday` or `--inbox` |
 | `focus [<id>…]` | Set exactly these as today's top 3; `--add`, `--remove`, `--clear`; no args shows them |
 | `goals [--json]` | Goals with open, focus and recently-done counts |
