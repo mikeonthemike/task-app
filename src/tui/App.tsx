@@ -15,6 +15,7 @@ type Section =
   | { kind: "focus" }
   | { kind: "waiting" }
   | { kind: "upcoming" }
+  | { kind: "recurring" }
   | { kind: "anytime" }
   | { kind: "someday" }
   | { kind: "logbook" }
@@ -28,6 +29,7 @@ function sectionLabel(s: Section): string {
     case "focus": return "Focus";
     case "waiting": return "Waiting";
     case "upcoming": return "Upcoming";
+    case "recurring": return "Recurring";
     case "anytime": return "Anytime";
     case "someday": return "Someday";
     case "logbook": return "Logbook";
@@ -43,6 +45,7 @@ function tasksFor(store: TaskStore, s: Section): Task[] {
     case "focus": return store.focus();
     case "waiting": return store.waiting();
     case "upcoming": return store.upcoming();
+    case "recurring": return store.recurring();
     case "anytime": return store.anytime();
     case "someday": return store.someday();
     case "logbook": return store.logbook();
@@ -95,6 +98,7 @@ export function App({ config }: { config: AppConfig }) {
       { kind: "focus" },
       { kind: "waiting" },
       { kind: "upcoming" },
+      { kind: "recurring" },
       { kind: "anytime" },
       { kind: "someday" },
       { kind: "logbook" },

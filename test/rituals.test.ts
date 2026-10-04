@@ -8,6 +8,7 @@ import { previousNoteDate, writeSection } from "../src/core/dailyNote.js";
 import { captureNotesToInbox, scanNotes } from "../src/core/notes.js";
 import { nextDate, nextOccurrence } from "../src/core/recurrence.js";
 import { TaskStore } from "../src/core/store.js";
+import { addDays, todayStr } from "../src/core/task.js";
 
 let config: AppConfig;
 const read = (rel: string) => readFileSync(join(config.vaultPath, rel), "utf8");
@@ -36,7 +37,7 @@ describe("recurrence rules", () => {
   });
 
   test("dates move together; 'when done' counts from today; no dates → scheduled", () => {
-    assert.deepEqual(nextOccurrence("every week", { start: null, scheduled: "2026-09-21", due: "2026-09-23" }), {
+    assert.deepEqual(nextOccurrence("every week", { start: null, scheduled: "2026-09-21", due: "2026-09-23" }, "2026-09-23"), {
       start: null,
       scheduled: "2026-09-28",
       due: "2026-09-30",
@@ -52,19 +53,108 @@ describe("recurrence rules", () => {
     });
   });
 
+  test("missed occurrences are skipped: the next one always lands after today", () => {
+    const rule = "every monday";
+    const late = { start: null, scheduled: "2026-09-14", due: null };
+    // Three weeks late on a Wednesday → next Monday, not 21 Sep.
+    assert.deepEqual(nextOccurrence(rule, late, "2026-10-07"), { start: null, scheduled: "2026-10-12", due: null });
+    // Late, completed on a Monday → next week (the overdue copy stood in for today's).
+    assert.deepEqual(nextOccurrence(rule, late, "2026-10-05"), { start: null, scheduled: "2026-10-12", due: null });
+    // Done early → just the following week.
+    assert.deepEqual(nextOccurrence(rule, { start: null, scheduled: "2026-10-12", due: null }, "2026-10-09"), {
+      start: null,
+      scheduled: "2026-10-19",
+      due: null,
+    });
+    // catchUp: false is the Tasks plugin's exact result.
+    assert.deepEqual(nextOccurrence(rule, late, "2026-10-07", { catchUp: false }), {
+      start: null,
+      scheduled: "2026-09-21",
+      due: null,
+    });
+    // Offsets between dates survive catch-up.
+    assert.deepEqual(nextOccurrence("every week", { start: null, scheduled: "2026-09-14", due: "2026-09-16" }, "2026-10-07"), {
+      start: null,
+      scheduled: "2026-10-12",
+      due: "2026-10-14",
+    });
+  });
+
   test("completing a recurring task creates the next one above it, without #focus", () => {
     const store = new TaskStore(config);
-    const t = store.add({ title: "Weekly review", area: "Work", recurrence: "every friday", scheduled: "2026-09-25", tags: ["#focus"] });
+    const friday = nextDate("every friday", todayStr())!;
+    const t = store.add({ title: "Weekly review", area: "Work", recurrence: "every friday", scheduled: friday, tags: ["#focus"] });
     const result = store.completeWithRecurrence(t.id)!;
     assert.equal(result.task.done, true);
-    assert.equal(result.next!.scheduled, "2026-10-02");
+    assert.equal(result.next!.scheduled, addDays(friday, 7));
     assert.equal(result.next!.tags.includes("#focus"), false);
     const lines = read("Tasks/Areas/Work.md").split("\n").filter((l) => l.startsWith("- ["));
-    assert.match(lines[0], /^- \[ \] Weekly review .*⏳ 2026-10-02/);
+    assert.match(lines[0], new RegExp(`^- \\[ \\] Weekly review .*⏳ ${addDays(friday, 7)}`));
     assert.match(lines[1], /^- \[x\] Weekly review .*#focus/);
     // Completing it again is a no-op, not a second occurrence.
     store.completeWithRecurrence(t.id);
     assert.equal(new TaskStore(config).all().length, 2);
+  });
+
+  test("completing an overdue recurring task doesn't recreate the missed weeks", () => {
+    const store = new TaskStore(config);
+    const t = store.add({ title: "Status update", area: "Work", recurrence: "every week", scheduled: addDays(todayStr(), -21) });
+    const result = store.completeWithRecurrence(t.id)!;
+    assert.ok(result.next!.scheduled! > todayStr());
+    assert.ok(result.next!.scheduled! <= addDays(todayStr(), 7));
+    assert.equal(store.overdue().length, 0);
+  });
+
+  test("uncomplete removes the untouched next occurrence, but not an edited one", () => {
+    const store = new TaskStore(config);
+    const t = store.add({ title: "Status update", area: "Work", recurrence: "every week", scheduled: addDays(todayStr(), -14) });
+    const done = store.completeWithRecurrence(t.id)!;
+    const back = store.uncompleteWithRecurrence(t.id)!;
+    assert.equal(back.task.done, false);
+    assert.equal(back.removed!.id, done.next!.id);
+    assert.deepEqual(new TaskStore(config).all().map((x) => x.id), [t.id]);
+
+    // Edit the spawned copy: now it's the user's, so it stays.
+    const again = store.completeWithRecurrence(t.id)!;
+    store.edit(again.next!.id, { scheduled: addDays(again.next!.scheduled!, 1) });
+    assert.equal(store.uncompleteWithRecurrence(t.id)!.removed, null);
+    assert.equal(new TaskStore(config).all().length, 2);
+  });
+
+  test("uncomplete also removes a next occurrence the Tasks plugin made in Obsidian (no catch-up)", () => {
+    const today = todayStr();
+    const old = addDays(today, -14);
+    write(
+      "Tasks/Areas/Work.md",
+      `# Work\n\n- [ ] Status update 🔁 every week ⏳ ${addDays(old, 7)} 🆔 new1\n- [x] Status update 🔁 every week ⏳ ${old} ✅ ${today} 🆔 old1\n`,
+    );
+    const store = new TaskStore(config);
+    assert.equal(store.uncompleteWithRecurrence("old1")!.removed!.id, "new1");
+    assert.deepEqual(new TaskStore(config).all().map((x) => x.id), ["old1"]);
+  });
+
+  test("skip moves a recurring task on without logging it, and drops #focus", () => {
+    const store = new TaskStore(config);
+    const today = todayStr();
+    const t = store.add({ title: "Status update", area: "Work", recurrence: "every week", scheduled: today, due: addDays(today, 1), tags: ["#focus"] });
+    const result = store.skip(t.id)!;
+    assert.equal(result.next!.id, t.id);
+    assert.equal(result.next!.scheduled, addDays(today, 7));
+    assert.equal(result.next!.due, addDays(today, 8));
+    assert.equal(result.next!.tags.includes("#focus"), false);
+    const reread = new TaskStore(config);
+    assert.equal(reread.all().length, 1);
+    assert.equal(reread.logbook().length, 0);
+    assert.throws(() => store.skip(store.add({ title: "One-off", area: "Work" }).id), /isn't recurring/);
+  });
+
+  test("recurring lists open recurring tasks, soonest first", () => {
+    const store = new TaskStore(config);
+    const today = todayStr();
+    store.add({ title: "Later", area: "Work", recurrence: "every month", scheduled: addDays(today, 20) });
+    store.add({ title: "Sooner", area: "Work", recurrence: "every week", scheduled: addDays(today, 2) });
+    store.add({ title: "Not recurring", area: "Work", scheduled: today });
+    assert.deepEqual(store.recurring().map((t) => t.title), ["Sooner", "Later"]);
   });
 
   test("an unparseable rule still completes, and reports it", () => {

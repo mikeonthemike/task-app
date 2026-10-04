@@ -82,6 +82,7 @@ export function formatTask(t: Task): string {
   if (t.priority) bits.push(`(${t.priority})`);
   if (t.due) bits.push(`due:${t.due}`);
   if (t.scheduled) bits.push(`sched:${t.scheduled}`);
+  if (t.recurrence) bits.push(`🔁 ${t.recurrence}`);
   if (t.project) bits.push(`[project:${t.project}]`);
   else if (t.area) bits.push(`[area:${t.area}]`);
   if (t.tags.length) bits.push(t.tags.join(" "));

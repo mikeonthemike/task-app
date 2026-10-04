@@ -58,13 +58,23 @@ export interface Dates {
  * Dates for the next occurrence. Like the Tasks plugin, the reference is due, else
  * scheduled, else start ("when done" rules use today instead), and every date moves by
  * the same offset. A task with no dates at all gets the next date as its scheduled date.
+ *
+ * Unlike the plugin, the next occurrence always lands after `today`: completing a weekly
+ * task three weeks late means you've caught up, so the missed weeks are skipped rather
+ * than recreated as overdue copies. Pass `catchUp: false` for the plugin's exact result.
  * Returns null for a rule we can't parse.
  */
-export function nextOccurrence(rule: string, dates: Dates, today = todayStr()): Dates | null {
+export function nextOccurrence(
+  rule: string,
+  dates: Dates,
+  today = todayStr(),
+  { catchUp = true }: { catchUp?: boolean } = {},
+): Dates | null {
   const whenDone = /\swhen done$/i.test(rule.trim());
   const ref = dates.due ?? dates.scheduled ?? dates.start;
-  const next = nextDate(rule, whenDone || !ref ? today : ref);
+  let next = nextDate(rule, whenDone || !ref ? today : ref);
   if (!next) return null;
+  while (catchUp && next <= today) next = nextDate(rule, next)!;
   if (!ref) return { start: null, scheduled: next, due: null };
 
   // Move the reference date onto `next` and every other date by the same offset.

@@ -35,9 +35,10 @@ with explicit flags.
 task-app add "<title>" [--project P] [--area A] [--due D] [--scheduled D] [--start D] \
   [--priority highest|high|medium|low|lowest] [--recurrence "every week"] [--tag t] [--notes "..."] [--someday] \
   [--goal G] [--focus] [--waiting "Person"] [--followup D] [--est 30m]
-task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|project:<n>|area:<n>|goal:<n>] [--json]
-task-app complete <id>            # recurring tasks get their next occurrence automatically
-task-app uncomplete <id>
+task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|recurring|project:<n>|area:<n>|goal:<n>] [--json]
+task-app complete <id>            # recurring tasks get their next occurrence automatically (always after today)
+task-app uncomplete <id>          # also removes that untouched next occurrence
+task-app skip <id>                # recurring task → next occurrence without logging it
 task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] \
   [--recurrence R|none] [--tag T] [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none]
 task-app move <id> [--project P | --area A | --someday | --inbox]
@@ -81,6 +82,10 @@ to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`
   day to chase it. When capturing "X will send me Y", use this rather than a plain task, and
   propose a follow-up date.
 - **Estimates** (`--est 45m`) let a plan be checked against free calendar time.
+- **Recurring tasks** (`--recurrence "every monday"` plus a `--scheduled` first date) spawn their
+  next occurrence on `complete`, always after today, so missed weeks don't pile up as overdue.
+  When a week isn't happening, `skip` it rather than completing it. Rules: `every [N]
+  day/week/month/year(s)`, `every weekday`, `every <weekday>`, optionally `… when done`.
 - **The daily note** (`<vault>/YYYY-MM-DD.md`) is the master record of the day. task-app owns only
   its `## Plan`, `## Meetings`, `## Shutdown` and `## Weekly Review` sections, written with `note write`. Write
   them as plain lists that reference task ids like `(abc123)`, **never `- [ ]` checkboxes**

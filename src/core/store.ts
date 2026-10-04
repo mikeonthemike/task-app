@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config.js";
 import { nanoid } from "nanoid";
 import { nextOccurrence } from "./recurrence.js";
-import { appendTask, type ScanOptions, completeTask, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
+import { appendTask, type ScanOptions, completeTask, deleteTaskLine, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
 import type { NewTaskInput, Task } from "./task.js";
 import { isPastOrToday, isToday, todayStr } from "./task.js";
 import { type Goal, type GoalsFile, loadGoals, readProjectMeta } from "./goals.js";
@@ -191,11 +191,66 @@ export class TaskStore {
   }
 
   uncomplete(id: string): Task | undefined {
+    return this.uncompleteWithRecurrence(id)?.task;
+  }
+
+  /**
+   * Reopens a task. For a recurring task, also removes the next occurrence its completion
+   * created, so you don't end up with two. Only an untouched one goes: same title and
+   * rule, still open, and dates exactly as completion set them (with or without catch-up,
+   * so a copy the Tasks plugin made in Obsidian counts too). An edited copy is left alone.
+   */
+  uncompleteWithRecurrence(id: string): { task: Task; removed: Task | null } | undefined {
     const task = this.byId(id);
     if (!task) return undefined;
+    const removed = task.done ? this.spawnedOccurrence(task) : null;
     const updated = updateTask({ ...task, done: false, doneDate: null });
     this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
-    return updated;
+    if (!removed) return { task: updated, removed: null };
+    deleteTaskLine(removed);
+    this.refresh(); // line numbers below the delete moved
+    return { task: this.byId(id)!, removed };
+  }
+
+  private spawnedOccurrence(task: Task): Task | null {
+    if (!task.recurrence || !task.doneDate) return null;
+    const expected = [true, false]
+      .map((catchUp) => nextOccurrence(task.recurrence!, task, task.doneDate!, { catchUp }))
+      .filter((d) => d !== null);
+    const matches = this.tasks.filter(
+      (t) =>
+        !t.done &&
+        t.id !== task.id &&
+        t.title === task.title &&
+        t.recurrence === task.recurrence &&
+        expected.some((d) => d.start === t.start && d.scheduled === t.scheduled && d.due === t.due),
+    );
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  /**
+   * Moves a recurring task to its next occurrence without completing it (a holiday week,
+   * a cancelled meeting): nothing goes into the Logbook, and the id stays the same.
+   * #focus is dropped, since it was about today. `next` is null if the rule couldn't be parsed.
+   */
+  skip(id: string): { task: Task; next: Task | null } | undefined {
+    const task = this.byId(id);
+    if (!task) return undefined;
+    if (!task.recurrence) throw new Error(`"${task.title}" isn't recurring, so there's no next occurrence to skip to.`);
+    if (task.done) throw new Error(`"${task.title}" is already done. Its next occurrence is a separate task.`);
+    const dates = nextOccurrence(task.recurrence, task);
+    if (!dates) return { task, next: null };
+    const updated = updateTask({ ...task, ...dates, tags: focusTags(task.tags, false) });
+    this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
+    return { task, next: updated };
+  }
+
+  /** Open recurring tasks, next occurrence soonest first (undated last). */
+  recurring(): Task[] {
+    const when = (t: Task) => t.scheduled ?? t.due ?? t.start ?? "9999";
+    return this.tasks
+      .filter((t) => !t.done && t.recurrence)
+      .sort((a, b) => when(a).localeCompare(when(b)));
   }
 
   reschedule(id: string, scheduled: string | null): Task | undefined {
