@@ -9,6 +9,8 @@ export interface AppConfig {
   tasksDir: string;
   /** Folder inside the vault holding YYYY-MM-DD.md daily notes. "" (the default) = vault root. */
   dailyNotesDir?: string;
+  /** How quick capture reads numeric dates like "9/10": "dmy" (9 Oct, the default) or "mdy" (Sep 10). */
+  dateOrder?: "dmy" | "mdy";
 }
 
 const CONFIG_DIR = join(homedir(), ".config", "task-app");

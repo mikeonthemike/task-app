@@ -76,7 +76,10 @@ export interface MoveDest {
 export interface CapturePreview {
   title: string;
   scheduled: string | null;
+  due: string | null;
   recurrence: string | null;
+  /** Set when a date in the text was left in the title (e.g. one that would jump to next year). */
+  warning: string | null;
 }
 
 export interface TaskAppApi {

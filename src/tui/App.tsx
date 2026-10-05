@@ -172,9 +172,9 @@ export function App({ config }: { config: AppConfig }) {
   const submitDraft = (text: string) => {
     setMode("list");
     if (!text.trim()) return;
-    const input = quickParse(text);
+    const { warning, ...input } = quickParse(text, new Date(), { dateOrder: config.dateOrder });
     store.add(input);
-    setStatus(`Added: ${input.title}`);
+    setStatus(warning ? `Added: ${input.title}. ${warning}` : `Added: ${input.title}`);
     rerender();
   };
 

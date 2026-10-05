@@ -57,7 +57,7 @@ const MONTH_RE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|jul
  * A leading "by"/"due" goes with the phrase. The week ends on Friday (the working week).
  */
 const END_RE = new RegExp(
-  `(^|[\\s(])(?:(?:due\\s+)?by\\s+|due\\s+)?(?:(?:the\\s+)?end\\s+of\\s+(?:the\\s+)?(?:(this|next)\\s+)?(day|week|month|quarter|year|${MONTH_RE})(?:\\s+(\\d{4}))?|(eod|eow|eom|eoy))\\b`,
+  `(^|[\\s(])((?:due\\s+)?by\\s+|due\\s+)?(?:(?:the\\s+)?end\\s+of\\s+(?:the\\s+)?(?:(this|next)\\s+)?(day|week|month|quarter|year|${MONTH_RE})(?:\\s+(\\d{4}))?|(eod|eow|eom|eoy))\\b`,
   "i",
 );
 
@@ -74,16 +74,17 @@ function anchorRule(rule: string, date: string): string {
   return date === lastOfMonth(y, m - 1) ? `${rule} on the last` : rule;
 }
 
-function takeEndOf(text: string, now: Date): { date: string; rest: string } | null {
+function takeEndOf(text: string, now: Date): { date: string; rest: string; phrase: string; deadline: boolean; rolled: boolean } | null {
   const m = END_RE.exec(text);
   if (!m) return null;
-  const [whole, lead, which, unitRaw, year, short] = m;
+  const [whole, lead, byDue, which, unitRaw, year, short] = m;
   const unit = short ? { eod: "day", eow: "week", eom: "month", eoy: "year" }[short.toLowerCase()]! : unitRaw.toLowerCase();
   const next = which?.toLowerCase() === "next";
   const today = iso(now);
   const y = now.getFullYear();
   const mo = now.getMonth();
   let date: string;
+  let rolled = false;
   if (unit === "day") date = today;
   else if (unit === "week") {
     date = nextDate("every friday", addDays(today, -1))!; // this week's Friday, or the coming one at a weekend
@@ -94,9 +95,12 @@ function takeEndOf(text: string, now: Date): { date: string; rest: string } | nu
   else {
     const month = MONTHS.findIndex((name) => name.startsWith(unit.slice(0, 3)));
     date = lastOfMonth(year ? Number(year) : y, month);
-    if (!year && date < today) date = lastOfMonth(y + 1, month);
+    if (!year && date < today) {
+      date = lastOfMonth(y + 1, month);
+      rolled = true;
+    }
   }
-  return { date, rest: text.slice(0, m.index) + lead + text.slice(m.index + whole.length) };
+  return { date, rest: text.slice(0, m.index) + lead + text.slice(m.index + whole.length), phrase: whole.slice(lead.length), deadline: !!byDue, rolled };
 }
 
 const tidy = (s: string) =>
@@ -105,10 +109,37 @@ const tidy = (s: string) =>
     .replace(/\s{2,}/g, " ")
     .trim();
 
+/** How "9/10" reads: day first (9 Oct, the UK default) or month first (Sep 10, US). */
+export type DateOrder = "dmy" | "mdy";
+
+export interface QuickParseOptions {
+  dateOrder?: DateOrder;
+}
+
+/** `warning` says why a date in the text was left alone, for the caller to show the user. */
+export type QuickParseResult = NewTaskInput & { warning?: string };
+
+/**
+ * A date with no year that only lands in the future by rolling into next year, and then more
+ * than this many days out, is more likely a misread (or a typo for a date just gone) than a plan
+ * for next year: typed on 6 Oct, "10 Sep" would be 10 Sep next year.
+ */
+const MAX_ROLLOVER_DAYS = 183;
+
+const pretty = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const rolloverWarning = (phrase: string, date: string) =>
+  `"${phrase.trim()}" would mean ${pretty(date)}, so it was left in the title. Add the year if that's right.`;
+
 /**
  * Local fallback capture parser (no Claude): pulls a date out with chrono-node, rest is the title.
  * Never infers a date in the past: ambiguous phrases resolve forwards ("weekend" = the coming one),
- * and anything still before `now` is ignored, leaving the title untouched.
+ * and anything still before `now` is ignored, leaving the title untouched. A yearless date that
+ * would only be future by jumping more than ~6 months into next year is ignored too, with a warning.
+ *
+ * Numeric dates are day first unless `dateOrder: "mdy"`: "by 9/10" is 9 October.
+ *
+ * A date introduced by "by"/"due" ("by friday", "due 12 Oct", "by end of month") is the due date;
+ * any other date is the scheduled date.
  *
  * A repeat phrase ("every monday") becomes the recurrence and is taken out before chrono runs, so
  * "monday" isn't read as a one-off date. The first occurrence is an explicit date in the text
@@ -117,27 +148,46 @@ const tidy = (s: string) =>
  * "End of …" phrases (month, week, quarter, year, a named month, EOD/EOW/EOM/EOY) resolve to the
  * last day of that period.
  */
-export function quickParse(text: string, now: Date = new Date()): NewTaskInput {
+export function quickParse(text: string, now: Date = new Date(), options: QuickParseOptions = {}): QuickParseResult {
   const today = iso(now);
   const repeat = takeRule(text);
   const source = repeat ? repeat.rest : text;
+  const tooFar = (date: string) => date > addDays(today, MAX_ROLLOVER_DAYS);
+
+  const noDate = (warning?: string): QuickParseResult => {
+    const w = warning ? { warning } : {};
+    if (!repeat) return { title: text.trim(), ...w };
+    return { title: tidy(source) || text.trim(), recurrence: repeat.rule, scheduled: firstOccurrence(repeat.rule, today), ...w };
+  };
+  const dated = (title: string, date: string, deadline: boolean): QuickParseResult => ({
+    title: title || text.trim(),
+    ...(deadline ? { due: date } : { scheduled: date }),
+    ...(repeat && { recurrence: anchorRule(repeat.rule, date) }),
+  });
 
   const endOf = takeEndOf(source, now);
   if (endOf && endOf.date >= today) {
-    return { title: tidy(endOf.rest) || text.trim(), scheduled: endOf.date, ...(repeat && { recurrence: anchorRule(repeat.rule, endOf.date) }) };
+    if (endOf.rolled && tooFar(endOf.date)) {
+      return noDate(rolloverWarning(endOf.phrase, endOf.date));
+    }
+    return dated(tidy(endOf.rest), endOf.date, endOf.deadline);
   }
 
-  const results = chrono.parse(source, now, { forwardDate: true });
+  const parser = options.dateOrder === "mdy" ? chrono.en.casual : chrono.en.GB;
+  const results = parser.parse(source, now, { forwardDate: true });
   const result = results.find((r) => iso(r.date()) >= today);
-  if (!result) {
-    if (!repeat) return { title: text.trim() };
-    return { title: tidy(source) || text.trim(), recurrence: repeat.rule, scheduled: firstOccurrence(repeat.rule, today) };
-  }
+  if (!result) return noDate();
   if (!repeat && result !== results[0]) return { title: text.trim() };
 
-  // "by friday", "due 12 Oct": the word introducing the date goes with it ("Pass by the shop" keeps its "by").
-  const before = source.slice(0, result.index).replace(/(^|[\s(])(?:due(?:\s+(?:by|on))?|by)\s*$/i, "$1");
+  const date = iso(result.date());
+  if (!result.start.isCertain("year") && Number(date.slice(0, 4)) > now.getFullYear() && tooFar(date)) {
+    return noDate(rolloverWarning(result.text, date));
+  }
+
+  // "by friday", "due 12 Oct": the word introducing the date goes with it, and makes it the due
+  // date ("Pass by the shop" keeps its "by").
+  const lead = source.slice(0, result.index);
+  const before = lead.replace(/(^|[\s(])(?:due(?:\s+(?:by|on))?|by)\s*$/i, "$1");
   const title = tidy(before + source.slice(result.index + result.text.length));
-  const scheduled = iso(result.date());
-  return { title: title || text.trim(), scheduled, ...(repeat && { recurrence: anchorRule(repeat.rule, scheduled) }) };
+  return dated(title, date, before !== lead);
 }
