@@ -228,6 +228,7 @@ async function main(): Promise<void> {
       if (guess.scheduled) {
         input.title = guess.title;
         input.scheduled = guess.scheduled;
+        input.recurrence = guess.recurrence ?? null;
       }
     }
 

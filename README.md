@@ -41,8 +41,8 @@ handle.
 **No AI in the app, and no API keys.** An agent session already has a capable model and
 authenticated connectors, so task-app doesn't duplicate them. It exposes scriptable commands
 with `--json` output, and the agent brings the judgment. The CLI's own natural-date parsing
-(chrono-node) is only a fallback for people typing into a plain terminal. It runs only when
-`add` gets no flags, and never picks a past date.
+(chrono-node, plus repeat phrases like "every monday") is only a fallback for people typing into a
+plain terminal or the widget. It runs only when `add` gets no flags, and never picks a past date.
 
 **Propose, then act.** The agent suggests and you decide. Today's top 3, calendar focus blocks,
 triage moves and captures from notes are all proposals until you say yes. Scheduled runs that
@@ -197,7 +197,7 @@ Everything works without an agent too, just without the judgment.
 | `h` / `l` or ←/→ | switch list (Inbox, Today, Upcoming, …) |
 | `j` / `k` or ↑/↓ | move the selection |
 | `space` / `enter` | complete the selected task |
-| `a` | quick-add (plain text; a date like "tomorrow" is picked up) |
+| `a` | quick-add (plain text; a date like "tomorrow" or a repeat like "every monday" is picked up) |
 | `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field, or add `--notes "…"` to add a note |
 | `x` | sweep completed tasks into `Logbook.md` |
 | `c` | capture `## Actions` bullets from untouched notes (see `task-app capture`) |
@@ -212,7 +212,9 @@ Each task shows its id in brackets, e.g. `[cc7xg7sv]`. That's the id `complete`,
   due, the rest of Today and what you've done today. Tick a task to complete it, or click its
   title to open it in Obsidian. The "Today ▾" title switches lists (the TUI's lists plus
   **All open**), ←/→ steps through them and Esc returns to Today.
-- **Quick capture** (⌃⌥Space from anywhere): one line into the Inbox.
+- **Quick capture** (⌃⌥Space from anywhere): one line into the Inbox. Dates ("fri") and repeats
+  ("every monday", "every 2 weeks", "every month from 1 Nov") are picked up, and the hint shows
+  how the line was read before you press Enter. Recurring tasks show 🔁 in every list.
 - **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the
   popover or the icon's right-click menu.
 
