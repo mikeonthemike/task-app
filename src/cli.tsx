@@ -119,12 +119,15 @@ Usage:
 
   task-app list [section] [--json]  Sections: inbox, today, overdue, upcoming,
                                      anytime, someday, logbook, all, focus,
-                                     waiting, project:<name>, area:<name>,
-                                     goal:<name>. Default: today.
+                                     waiting, recurring, project:<name>,
+                                     area:<name>, goal:<name>. Default: today.
 
   task-app complete <id>            Mark a task done. A recurring task (🔁) gets
-                                     its next occurrence on the line above.
-  task-app uncomplete <id>          Undo that.
+                                     its next occurrence on the line above, always
+                                     after today (missed occurrences are skipped).
+  task-app uncomplete <id>          Undo that, removing the untouched next occurrence.
+  task-app skip <id>                Move a recurring task to its next occurrence
+                                     without completing it (nothing is logged).
 
   task-app edit <id> [flags]        Update fields in place (doesn't move file).
     --title <text> --due <date|none> --scheduled <date|none> --start <date|none>
@@ -249,6 +252,7 @@ async function main(): Promise<void> {
     else if (section === "all") tasks = store.all();
     else if (section === "focus") tasks = store.focus();
     else if (section === "waiting") tasks = store.waiting();
+    else if (section === "recurring") tasks = store.recurring();
     else if (section.startsWith("goal:")) {
       const goal = resolveGoal(store.goals(), section.slice("goal:".length));
       tasks = store.all().filter((t) => !t.done && store.goalOf(t) === goal.name);
@@ -285,9 +289,21 @@ async function main(): Promise<void> {
     const [id] = rest;
     if (!id) throw new Error("Usage: task-app uncomplete <id>");
     const store = new TaskStore(config);
-    const task = store.uncomplete(id);
-    if (!task) throw new Error(`No task with id "${id}".`);
-    console.log(`Reopened: ${formatTask(task)}`);
+    const result = store.uncompleteWithRecurrence(id);
+    if (!result) throw new Error(`No task with id "${id}".`);
+    console.log(`Reopened: ${formatTask(result.task)}`);
+    if (result.removed) console.log(`Removed its next occurrence: ${formatTask(result.removed)}`);
+    return;
+  }
+
+  if (cmd === "skip") {
+    const [id] = rest;
+    if (!id) throw new Error("Usage: task-app skip <id>");
+    const store = new TaskStore(config);
+    const result = store.skip(id);
+    if (!result) throw new Error(`No task with id "${id}".`);
+    if (!result.next) throw new Error(`Couldn't parse recurrence "${result.task.recurrence}", so there's no next occurrence to skip to.`);
+    console.log(`Skipped to next occurrence: ${formatTask(result.next)}`);
     return;
   }
 

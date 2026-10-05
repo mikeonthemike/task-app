@@ -27,9 +27,10 @@ task-app add "<title>" [--project P] [--area A] [--due YYYY-MM-DD] \
   [--tag foo] [--tag bar] [--notes "..."] [--someday] \
   [--goal G] [--focus] [--waiting "Person"] [--followup YYYY-MM-DD] [--est 30m] [--literal]
 
-task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|project:<name>|area:<name>|goal:<name>] [--json]
+task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|recurring|project:<name>|area:<name>|goal:<name>] [--json]
 task-app complete <id>
-task-app uncomplete <id>
+task-app uncomplete <id>          # also removes the untouched next occurrence of a recurring task
+task-app skip <id>                # recurring task → next occurrence, nothing logged (holiday week, cancelled)
 task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] [--recurrence R|none] [--tag T] \
   [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none] [--notes "..."]   # --notes adds a line
 task-app move <id> [--project P | --area A | --someday | --inbox]
@@ -84,6 +85,13 @@ survives Obsidian edits:
   and suggest a follow-up date.
 - **Estimates** (`--est 30m`, `#est/30m`) are used to check a plan against free calendar time.
   If a focus task has no estimate, say you're guessing; don't invent one silently.
+- **Recurring tasks** (`--recurrence "every monday"`, stored as `🔁 every monday`) need a date to
+  count from, so give them a `--scheduled` (or `--due`) for the first occurrence. `complete` ticks
+  that occurrence into the Logbook and adds the next one, always dated after today, so missed weeks
+  are skipped rather than recreated as overdue copies. When the user says a week isn't happening
+  (holiday, meeting cancelled), use `skip`, not `complete`, so the Logbook stays truthful. Supported
+  rules: `every [N] day(s)/week(s)/month(s)/year(s)`, `every weekday`, `every <weekday>`, any of
+  them with `when done` to count from the completion date instead.
 
 `review --json` is the main input for planning and reviews. It holds focus, today, overdue,
 due-within-7-days, Inbox (with age/`stale`), waiting (`followUpDue` / `noFollowUpDate` /
