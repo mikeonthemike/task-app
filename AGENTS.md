@@ -83,6 +83,10 @@ survives Obsidian edits:
   `#waiting-on` tag as waiting on an unnamed person. When capturing a task where someone
   else owes the user something, use `--waiting` rather than putting the name in the title,
   and suggest a follow-up date.
+- **Priority** means importance, never urgency (dates carry urgency). Every task has one, and the
+  default is normal (Tasks `priority.number` 3), stored as no emoji because the Tasks format has
+  no marker for normal. `--priority none` resets a task to normal. `medium` 🔼 and above counts as
+  "important". The full rule is in `skill/task-app/SKILL.md` → "The model".
 - **Estimates** (`--est 30m`, `#est/30m`) are used to check a plan against free calendar time.
   If a focus task has no estimate, say you're guessing; don't invent one silently.
 - **Recurring tasks** (`--recurrence "every monday"`, stored as `🔁 every monday`) need a date to
