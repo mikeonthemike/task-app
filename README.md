@@ -221,6 +221,11 @@ Each task shows its id in brackets, e.g. `[cc7xg7sv]`. That's the id `complete`,
   how the line was read before you press Enter. Recurring tasks show 🔁 in every list.
 - **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the
   popover or the icon's right-click menu.
+- **Eisenhower matrix** (the ⊞ button in the popover, or the right-click menu): a resizable
+  window with the four quadrants, each scrolling on its own, and waiting-on items in a strip
+  underneath. It sorts tasks exactly as the vault's `Eisenhower.md` note does (urgent = due within
+  3 days, important = 🔼 or above, or a `#goal/` tag), and it stays open beside Obsidian until
+  you press Esc. You can tick, open and move tasks there, but it never changes a priority or a date.
 
 ```bash
 npm --prefix desktop install
