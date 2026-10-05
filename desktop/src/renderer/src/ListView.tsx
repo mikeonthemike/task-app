@@ -32,7 +32,7 @@ export function ListView({ id, snap, onError }: Props) {
   if (!tasks.length) return <p className="empty">{EMPTY[id] ?? "Nothing open here."}</p>;
 
   const scoped = id.startsWith("project:") || id.startsWith("area:");
-  const row = (t: WidgetTask) => <TaskRow key={t.id} task={t} today={snap.date} onError={onError} hideWhere={scoped || id === "all"} />;
+  const row = (t: WidgetTask) => <TaskRow key={t.id} task={t} today={snap.date} onError={onError} hideWhere={scoped || id === "all" || id === "inbox"} />;
 
   if (id !== "all") return <ul>{tasks.map(row)}</ul>;
 

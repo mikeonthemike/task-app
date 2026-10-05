@@ -191,12 +191,18 @@ Rebuild after any source change, or the CLI keeps running the old code.
 
 ## Desktop widget
 
-`desktop/` is an Electron menu-bar widget (popover, ⌃⌥Space quick capture, floating focus pill).
+`desktop/` is an Electron menu-bar widget (popover, ⌃⌥Space quick capture, floating focus pill,
+Eisenhower matrix popout).
 Its main process imports `../src/core` directly, so a core change also affects the widget. The
 user runs the packaged copy in `~/Applications/task-app.app`, so after changing `src/core` or
 `desktop/`, run `npm run widget:install` (or tell the user to) or they'll keep running the old build. It uses a read-only scan (`new TaskStore(config, { persistIds: false })`)
 so its file watcher never writes. It never sets focus, and has no timer, AI calls or calendar writes
 (the user's choices). Keep it that way unless they ask.
+
+The Eisenhower popout sorts tasks with `src/core/eisenhower.ts`, which mirrors the vault's
+`Tasks/Eisenhower.md` query note rule for rule (that note can't run code, so the two are kept in
+step by hand). If you change one, change the other. The popout is read-only apart from the row
+actions every list has: no dragging between quadrants, and no priority or date edits.
 
 ## Vault layout
 

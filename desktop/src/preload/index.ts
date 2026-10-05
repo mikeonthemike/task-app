@@ -5,6 +5,7 @@ import type { Snapshot, TaskAppApi } from "../shared/api.js";
 const api: TaskAppApi = {
   getSnapshot: () => ipcRenderer.invoke("snapshot:get"),
   getList: (id) => ipcRenderer.invoke("list:get", id),
+  getMatrix: () => ipcRenderer.invoke("matrix:get"),
   onSnapshot: (cb) => {
     const listener = (_e: IpcRendererEvent, s: Snapshot) => cb(s);
     ipcRenderer.on("snapshot", listener);
@@ -18,6 +19,7 @@ const api: TaskAppApi = {
   openTask: (id) => ipcRenderer.invoke("open:task", id),
   openDailyNote: () => ipcRenderer.invoke("open:dailyNote"),
   togglePill: () => ipcRenderer.invoke("pill:toggle"),
+  openMatrix: () => ipcRenderer.invoke("matrix:open"),
   hideWindow: () => ipcRenderer.send("window:hide"),
   onCaptureReset: (cb) => {
     const listener = () => cb();
