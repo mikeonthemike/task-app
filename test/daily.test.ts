@@ -305,6 +305,31 @@ describe("quickParse fallback", () => {
     });
   });
 
+  test("'end of …' resolves to the last day of that period", () => {
+    // monday = 2026-09-28
+    assert.deepEqual(quickParse("Report by end of October", monday), { title: "Report", scheduled: "2026-10-31" });
+    assert.deepEqual(quickParse("Close the books by the end of the month", monday), { title: "Close the books", scheduled: "2026-09-30" });
+    assert.deepEqual(quickParse("Budget end of next month", monday), { title: "Budget", scheduled: "2026-10-31" });
+    assert.deepEqual(quickParse("Timesheet EOW", monday), { title: "Timesheet", scheduled: "2026-10-02" });
+    assert.deepEqual(quickParse("Plan due end of next week", monday), { title: "Plan", scheduled: "2026-10-09" });
+    assert.deepEqual(quickParse("Reply to Sam (EOD)", monday), { title: "Reply to Sam", scheduled: "2026-09-28" });
+    assert.deepEqual(quickParse("QBR deck by end of quarter", monday), { title: "QBR deck", scheduled: "2026-09-30" });
+    assert.deepEqual(quickParse("Goals end of year", monday), { title: "Goals", scheduled: "2026-12-31" });
+    // A month that's already ended this year means next year's.
+    assert.deepEqual(quickParse("Renew insurance by end of Feb", monday), { title: "Renew insurance", scheduled: "2027-02-28" });
+    assert.deepEqual(quickParse("Tax return end of January 2028", monday), { title: "Tax return", scheduled: "2028-01-31" });
+    // At a weekend, "end of week" is the coming Friday.
+    assert.equal(quickParse("Timesheet end of week", new Date(2026, 9, 3)).scheduled, "2026-10-09");
+    // Works alongside a repeat.
+    assert.deepEqual(quickParse("Invoice every month by end of month", monday), {
+      title: "Invoice",
+      recurrence: "every month",
+      scheduled: "2026-09-30",
+    });
+    // "end" on its own is just a word.
+    assert.deepEqual(quickParse("Tie up loose ends", monday), { title: "Tie up loose ends" });
+  });
+
   test("a repeat phrase becomes the recurrence, starting on the next matching day", () => {
     // Today matches: starts today, and "monday" isn't read as a one-off date.
     assert.deepEqual(quickParse("MOT status update every monday", monday), {

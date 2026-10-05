@@ -42,6 +42,45 @@ function firstOccurrence(rule: string, today: string): string {
   return /^every (weekday|[a-z]+day)\b/.test(rule) ? nextDate(rule, addDays(today, -1))! : today;
 }
 
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+const MONTH_RE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+
+/**
+ * "end of the month", "by end of October", "EOW": chrono doesn't know these, so they're read here.
+ * A leading "by"/"due" goes with the phrase. The week ends on Friday (the working week).
+ */
+const END_RE = new RegExp(
+  `(^|[\\s(])(?:(?:due\\s+)?by\\s+|due\\s+)?(?:(?:the\\s+)?end\\s+of\\s+(?:the\\s+)?(?:(this|next)\\s+)?(day|week|month|quarter|year|${MONTH_RE})(?:\\s+(\\d{4}))?|(eod|eow|eom|eoy))\\b`,
+  "i",
+);
+
+const lastOfMonth = (y: number, m: number) => iso(new Date(y, m + 1, 0)); // m is 0-based
+
+function takeEndOf(text: string, now: Date): { date: string; rest: string } | null {
+  const m = END_RE.exec(text);
+  if (!m) return null;
+  const [whole, lead, which, unitRaw, year, short] = m;
+  const unit = short ? { eod: "day", eow: "week", eom: "month", eoy: "year" }[short.toLowerCase()]! : unitRaw.toLowerCase();
+  const next = which?.toLowerCase() === "next";
+  const today = iso(now);
+  const y = now.getFullYear();
+  const mo = now.getMonth();
+  let date: string;
+  if (unit === "day") date = today;
+  else if (unit === "week") {
+    date = nextDate("every friday", addDays(today, -1))!; // this week's Friday, or the coming one at a weekend
+    if (next) date = addDays(date, 7);
+  } else if (unit === "month") date = lastOfMonth(y, mo + (next ? 1 : 0));
+  else if (unit === "quarter") date = lastOfMonth(y, Math.floor(mo / 3) * 3 + 2 + (next ? 3 : 0));
+  else if (unit === "year") date = iso(new Date(y + (next ? 1 : 0), 11, 31));
+  else {
+    const month = MONTHS.findIndex((name) => name.startsWith(unit.slice(0, 3)));
+    date = lastOfMonth(year ? Number(year) : y, month);
+    if (!year && date < today) date = lastOfMonth(y + 1, month);
+  }
+  return { date, rest: text.slice(0, m.index) + lead + text.slice(m.index + whole.length) };
+}
+
 const tidy = (s: string) =>
   s
     .replace(/\(\s*\)/g, "")
@@ -56,11 +95,19 @@ const tidy = (s: string) =>
  * A repeat phrase ("every monday") becomes the recurrence and is taken out before chrono runs, so
  * "monday" isn't read as a one-off date. The first occurrence is an explicit date in the text
  * ("every monday from 12 oct"), else the next matching day (today if it matches).
+ *
+ * "End of …" phrases (month, week, quarter, year, a named month, EOD/EOW/EOM/EOY) resolve to the
+ * last day of that period.
  */
 export function quickParse(text: string, now: Date = new Date()): NewTaskInput {
   const today = iso(now);
   const repeat = takeRule(text);
   const source = repeat ? repeat.rest : text;
+
+  const endOf = takeEndOf(source, now);
+  if (endOf && endOf.date >= today) {
+    return { title: tidy(endOf.rest) || text.trim(), scheduled: endOf.date, ...(repeat && { recurrence: repeat.rule }) };
+  }
 
   const results = chrono.parse(source, now, { forwardDate: true });
   const result = results.find((r) => iso(r.date()) >= today);
