@@ -293,6 +293,18 @@ describe("quickParse fallback", () => {
     assert.deepEqual(quickParse("No date here", monday), { title: "No date here" });
   });
 
+  test("a 'by' or 'due' introducing the date goes with it", () => {
+    assert.deepEqual(quickParse("Renew passport by friday", monday), { title: "Renew passport", scheduled: "2026-10-02" });
+    assert.deepEqual(quickParse("Submit expenses due by 12 Oct", monday), { title: "Submit expenses", scheduled: "2026-10-12" });
+    assert.deepEqual(quickParse("Send deck (by 12 Oct) to Sam", monday), { title: "Send deck to Sam", scheduled: "2026-10-12" });
+    assert.deepEqual(quickParse("Pass by the shop tomorrow", monday), { title: "Pass by the shop", scheduled: "2026-09-29" });
+    assert.deepEqual(quickParse("MOT update every monday by 12 Oct", monday), {
+      title: "MOT update",
+      recurrence: "every monday",
+      scheduled: "2026-10-12",
+    });
+  });
+
   test("a repeat phrase becomes the recurrence, starting on the next matching day", () => {
     // Today matches: starts today, and "monday" isn't read as a one-off date.
     assert.deepEqual(quickParse("MOT status update every monday", monday), {

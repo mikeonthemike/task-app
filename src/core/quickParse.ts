@@ -70,6 +70,8 @@ export function quickParse(text: string, now: Date = new Date()): NewTaskInput {
   }
   if (!repeat && result !== results[0]) return { title: text.trim() };
 
-  const title = tidy(source.slice(0, result.index) + source.slice(result.index + result.text.length));
+  // "by friday", "due 12 Oct": the word introducing the date goes with it ("Pass by the shop" keeps its "by").
+  const before = source.slice(0, result.index).replace(/(^|[\s(])(?:due(?:\s+(?:by|on))?|by)\s*$/i, "$1");
+  const title = tidy(before + source.slice(result.index + result.text.length));
   return { title: title || text.trim(), scheduled: iso(result.date()), ...(repeat && { recurrence: repeat.rule }) };
 }
