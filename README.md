@@ -111,6 +111,9 @@ The config lives in `~/.config/task-app/config.json`:
 `dailyNotesDir` is where your `YYYY-MM-DD.md` daily notes live, relative to the vault root
 (empty means the vault root).
 
+Quick capture reads numeric dates day first, so "by 9/10" means 9 October. If you write dates
+month first, add `"dateOrder": "mdy"`.
+
 ## Using it with an agent
 
 Open an agent session (Claude Code, or any agent that reads `AGENTS.md`) in this folder and talk

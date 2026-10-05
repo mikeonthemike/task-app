@@ -51,6 +51,8 @@ export function CaptureInput({ today, standalone }: Props) {
           `“${preview.title}”`,
           preview.recurrence && `🔁 ${preview.recurrence}`,
           preview.scheduled && relativeDate(preview.scheduled, today),
+          preview.due && `due ${relativeDate(preview.due, today)}`,
+          preview.warning,
         ]
           .filter(Boolean)
           .join(" · ")

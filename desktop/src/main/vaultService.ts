@@ -243,8 +243,8 @@ export class VaultService {
   }
 
   previewCapture(text: string): CapturePreview {
-    const { title, scheduled, recurrence } = quickParse(text);
-    return { title, scheduled: scheduled ?? null, recurrence: recurrence ?? null };
+    const { title, scheduled, due, recurrence, warning } = quickParse(text, new Date(), { dateOrder: this.config?.dateOrder });
+    return { title, scheduled: scheduled ?? null, due: due ?? null, recurrence: recurrence ?? null, warning: warning ?? null };
   }
 
   /** Quick capture always lands in the Inbox; Claude or the user files it later. */
@@ -253,7 +253,8 @@ export class VaultService {
     if (!text.trim()) return { ok: false, error: "Nothing to add." };
     try {
       this.store.refresh({ persistIds: true });
-      this.store.add(quickParse(text));
+      const { warning: _warning, ...input } = quickParse(text, new Date(), { dateOrder: this.config?.dateOrder });
+      this.store.add(input);
       this.rescan();
       return { ok: true };
     } catch (e) {

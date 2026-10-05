@@ -293,34 +293,70 @@ describe("quickParse fallback", () => {
     assert.deepEqual(quickParse("No date here", monday), { title: "No date here" });
   });
 
-  test("a 'by' or 'due' introducing the date goes with it", () => {
-    assert.deepEqual(quickParse("Renew passport by friday", monday), { title: "Renew passport", scheduled: "2026-10-02" });
-    assert.deepEqual(quickParse("Submit expenses due by 12 Oct", monday), { title: "Submit expenses", scheduled: "2026-10-12" });
-    assert.deepEqual(quickParse("Send deck (by 12 Oct) to Sam", monday), { title: "Send deck to Sam", scheduled: "2026-10-12" });
+  test("a 'by' or 'due' introducing the date goes with it and makes it the due date", () => {
+    assert.deepEqual(quickParse("Renew passport by friday", monday), { title: "Renew passport", due: "2026-10-02" });
+    assert.deepEqual(quickParse("Submit expenses due by 12 Oct", monday), { title: "Submit expenses", due: "2026-10-12" });
+    assert.deepEqual(quickParse("Send deck (by 12 Oct) to Sam", monday), { title: "Send deck to Sam", due: "2026-10-12" });
     assert.deepEqual(quickParse("Pass by the shop tomorrow", monday), { title: "Pass by the shop", scheduled: "2026-09-29" });
     assert.deepEqual(quickParse("MOT update every monday by 12 Oct", monday), {
       title: "MOT update",
       recurrence: "every monday",
-      scheduled: "2026-10-12",
+      due: "2026-10-12",
     });
+  });
+
+  test("numeric dates are day first by default", () => {
+    const tuesday = new Date(2026, 9, 6, 9, 0); // 2026-10-06
+    assert.deepEqual(quickParse("Write up the proposal by 9/10", tuesday), { title: "Write up the proposal", due: "2026-10-09" });
+    assert.deepEqual(quickParse("Criteria circulated by 7/10", tuesday), { title: "Criteria circulated", due: "2026-10-07" });
+    assert.deepEqual(quickParse("Review the test plan 20/10", tuesday), { title: "Review the test plan", scheduled: "2026-10-20" });
+    assert.deepEqual(quickParse("Book venue by 3/11/2026", tuesday), { title: "Book venue", due: "2026-11-03" });
+    // Month first when configured.
+    assert.deepEqual(quickParse("Book venue by 11/3", tuesday, { dateOrder: "mdy" }), { title: "Book venue", due: "2026-11-03" });
+  });
+
+  test("a yearless date that would jump far into next year is left in the title, with a warning", () => {
+    const tuesday = new Date(2026, 9, 6, 9, 0); // 2026-10-06
+    // Read month first, "9/10" is 10 Sep, just gone: not silently 10 Sep 2027.
+    const misread = quickParse("Write up the proposal by 9/10", tuesday, { dateOrder: "mdy" });
+    assert.equal(misread.title, "Write up the proposal by 9/10");
+    assert.equal(misread.due, undefined);
+    assert.equal(misread.scheduled, undefined);
+    assert.match(misread.warning ?? "", /10 Sept? 2027/);
+    const gone = quickParse("Send the survey by 30 Sep", tuesday);
+    assert.equal(gone.title, "Send the survey by 30 Sep");
+    assert.match(gone.warning ?? "", /Add the year/);
+    const monthGone = quickParse("Report by end of September", tuesday);
+    assert.equal(monthGone.title, "Report by end of September");
+    assert.equal(monthGone.due, undefined);
+    assert.ok(monthGone.warning);
+    // With a repeat, the repeat still applies from its next occurrence.
+    const repeat = quickParse("Status update every monday from 28/9", tuesday);
+    assert.equal(repeat.recurrence, "every monday");
+    assert.equal(repeat.scheduled, "2026-10-12");
+    assert.ok(repeat.warning);
+    // A short rollover, or an explicit year, is taken as meant.
+    assert.deepEqual(quickParse("Renew insurance by 28/2", tuesday), { title: "Renew insurance", due: "2027-02-28" });
+    assert.deepEqual(quickParse("Plan the offsite 10 Sep 2027", tuesday), { title: "Plan the offsite", scheduled: "2027-09-10" });
   });
 
   test("'end of …' resolves to the last day of that period", () => {
     // monday = 2026-09-28
-    assert.deepEqual(quickParse("Report by end of October", monday), { title: "Report", scheduled: "2026-10-31" });
-    assert.deepEqual(quickParse("Close the books by the end of the month", monday), { title: "Close the books", scheduled: "2026-09-30" });
+    assert.deepEqual(quickParse("Report by end of October", monday), { title: "Report", due: "2026-10-31" });
+    assert.deepEqual(quickParse("Close the books by the end of the month", monday), { title: "Close the books", due: "2026-09-30" });
     assert.deepEqual(quickParse("Budget end of next month", monday), { title: "Budget", scheduled: "2026-10-31" });
     assert.deepEqual(quickParse("Timesheet EOW", monday), { title: "Timesheet", scheduled: "2026-10-02" });
-    assert.deepEqual(quickParse("Plan due end of next week", monday), { title: "Plan", scheduled: "2026-10-09" });
+    assert.deepEqual(quickParse("Plan due end of next week", monday), { title: "Plan", due: "2026-10-09" });
     assert.deepEqual(quickParse("Reply to Sam (EOD)", monday), { title: "Reply to Sam", scheduled: "2026-09-28" });
-    assert.deepEqual(quickParse("QBR deck by end of quarter", monday), { title: "QBR deck", scheduled: "2026-09-30" });
+    assert.deepEqual(quickParse("QBR deck by end of quarter", monday), { title: "QBR deck", due: "2026-09-30" });
     assert.deepEqual(quickParse("Goals end of year", monday), { title: "Goals", scheduled: "2026-12-31" });
     // A month that's already ended this year means next year's.
-    assert.deepEqual(quickParse("Renew insurance by end of Feb", monday), { title: "Renew insurance", scheduled: "2027-02-28" });
+    assert.deepEqual(quickParse("Renew insurance by end of Feb", monday), { title: "Renew insurance", due: "2027-02-28" });
     assert.deepEqual(quickParse("Tax return end of January 2028", monday), { title: "Tax return", scheduled: "2028-01-31" });
     // At a weekend, "end of week" is the coming Friday.
     assert.equal(quickParse("Timesheet end of week", new Date(2026, 9, 3)).scheduled, "2026-10-09");
     // With a repeat, a month end becomes a month-end rule rather than a drifting day number.
+    // (The repeat rule takes in its "by end of …", so the date is the first occurrence, not a deadline.)
     for (const text of ["Invoice every month by end of month", "Invoice every month on the last day", "Invoice every month end"]) {
       assert.deepEqual(quickParse(text, monday), { title: "Invoice", recurrence: "every month on the last", scheduled: "2026-09-30" }, text);
     }
@@ -338,10 +374,10 @@ describe("quickParse fallback", () => {
     for (const [text, scheduled] of [
       ["Invoice every month from 31 Oct", "2026-10-31"],
       ["Invoice every month from 30 Nov", "2026-11-30"],
-      ["Invoice every month by end of October", "2026-10-31"],
     ]) {
       assert.deepEqual(quickParse(text, monday), { title: "Invoice", recurrence: "every month on the last", scheduled }, text);
     }
+    assert.equal(quickParse("Invoice every month by end of October", monday).recurrence, "every month on the last");
     assert.equal(quickParse("Board pack every 3 months from 31 Dec", monday).recurrence, "every 3 months on the last");
     // Not for other days, "when done", or other units.
     assert.equal(quickParse("Rent every month from 30 Oct", monday).recurrence, "every month");
@@ -351,7 +387,7 @@ describe("quickParse fallback", () => {
     assert.deepEqual(quickParse("Goals review every year by end of year", monday), {
       title: "Goals review",
       recurrence: "every year",
-      scheduled: "2026-12-31",
+      due: "2026-12-31",
     });
     // "end" on its own is just a word.
     assert.deepEqual(quickParse("Tie up loose ends", monday), { title: "Tie up loose ends" });

@@ -224,12 +224,14 @@ async function main(): Promise<void> {
     // The chrono date-guess is a safety net for a human typing a bare title. Any flag at all means
     // a structured caller (usually an agent) who already chose the dates, so the title stays verbatim.
     if (!Object.keys(args.flags).length) {
-      const guess = quickParse(input.title);
-      if (guess.scheduled) {
+      const guess = quickParse(input.title, new Date(), { dateOrder: config.dateOrder });
+      if (guess.scheduled || guess.due) {
         input.title = guess.title;
-        input.scheduled = guess.scheduled;
+        input.scheduled = guess.scheduled ?? null;
+        input.due = guess.due ?? null;
         input.recurrence = guess.recurrence ?? null;
       }
+      if (guess.warning) console.error(`Note: ${guess.warning}`);
     }
 
     const task = store.add(input);
