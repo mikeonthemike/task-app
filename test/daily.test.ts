@@ -293,6 +293,70 @@ describe("quickParse fallback", () => {
     assert.deepEqual(quickParse("No date here", monday), { title: "No date here" });
   });
 
+  test("a 'by' or 'due' introducing the date goes with it", () => {
+    assert.deepEqual(quickParse("Renew passport by friday", monday), { title: "Renew passport", scheduled: "2026-10-02" });
+    assert.deepEqual(quickParse("Submit expenses due by 12 Oct", monday), { title: "Submit expenses", scheduled: "2026-10-12" });
+    assert.deepEqual(quickParse("Send deck (by 12 Oct) to Sam", monday), { title: "Send deck to Sam", scheduled: "2026-10-12" });
+    assert.deepEqual(quickParse("Pass by the shop tomorrow", monday), { title: "Pass by the shop", scheduled: "2026-09-29" });
+    assert.deepEqual(quickParse("MOT update every monday by 12 Oct", monday), {
+      title: "MOT update",
+      recurrence: "every monday",
+      scheduled: "2026-10-12",
+    });
+  });
+
+  test("'end of …' resolves to the last day of that period", () => {
+    // monday = 2026-09-28
+    assert.deepEqual(quickParse("Report by end of October", monday), { title: "Report", scheduled: "2026-10-31" });
+    assert.deepEqual(quickParse("Close the books by the end of the month", monday), { title: "Close the books", scheduled: "2026-09-30" });
+    assert.deepEqual(quickParse("Budget end of next month", monday), { title: "Budget", scheduled: "2026-10-31" });
+    assert.deepEqual(quickParse("Timesheet EOW", monday), { title: "Timesheet", scheduled: "2026-10-02" });
+    assert.deepEqual(quickParse("Plan due end of next week", monday), { title: "Plan", scheduled: "2026-10-09" });
+    assert.deepEqual(quickParse("Reply to Sam (EOD)", monday), { title: "Reply to Sam", scheduled: "2026-09-28" });
+    assert.deepEqual(quickParse("QBR deck by end of quarter", monday), { title: "QBR deck", scheduled: "2026-09-30" });
+    assert.deepEqual(quickParse("Goals end of year", monday), { title: "Goals", scheduled: "2026-12-31" });
+    // A month that's already ended this year means next year's.
+    assert.deepEqual(quickParse("Renew insurance by end of Feb", monday), { title: "Renew insurance", scheduled: "2027-02-28" });
+    assert.deepEqual(quickParse("Tax return end of January 2028", monday), { title: "Tax return", scheduled: "2028-01-31" });
+    // At a weekend, "end of week" is the coming Friday.
+    assert.equal(quickParse("Timesheet end of week", new Date(2026, 9, 3)).scheduled, "2026-10-09");
+    // With a repeat, a month end becomes a month-end rule rather than a drifting day number.
+    for (const text of ["Invoice every month by end of month", "Invoice every month on the last day", "Invoice every month end"]) {
+      assert.deepEqual(quickParse(text, monday), { title: "Invoice", recurrence: "every month on the last", scheduled: "2026-09-30" }, text);
+    }
+    assert.deepEqual(quickParse("Board pack every 3 months by end of month", monday), {
+      title: "Board pack",
+      recurrence: "every 3 months on the last",
+      scheduled: "2026-09-30",
+    });
+    assert.deepEqual(quickParse("Timesheet every week by end of week", monday), {
+      title: "Timesheet",
+      recurrence: "every friday",
+      scheduled: "2026-10-02",
+    });
+    // A monthly repeat starting on a month's last day is a month-end rule too.
+    for (const [text, scheduled] of [
+      ["Invoice every month from 31 Oct", "2026-10-31"],
+      ["Invoice every month from 30 Nov", "2026-11-30"],
+      ["Invoice every month by end of October", "2026-10-31"],
+    ]) {
+      assert.deepEqual(quickParse(text, monday), { title: "Invoice", recurrence: "every month on the last", scheduled }, text);
+    }
+    assert.equal(quickParse("Board pack every 3 months from 31 Dec", monday).recurrence, "every 3 months on the last");
+    // Not for other days, "when done", or other units.
+    assert.equal(quickParse("Rent every month from 30 Oct", monday).recurrence, "every month");
+    assert.equal(quickParse("Haircut every month when done from 31 Oct", monday).recurrence, "every month when done");
+    assert.equal(quickParse("Review every week from 31 Oct", monday).recurrence, "every week");
+    // No end-of rule for a year: the repeat stays plain and the end-of reader dates it.
+    assert.deepEqual(quickParse("Goals review every year by end of year", monday), {
+      title: "Goals review",
+      recurrence: "every year",
+      scheduled: "2026-12-31",
+    });
+    // "end" on its own is just a word.
+    assert.deepEqual(quickParse("Tie up loose ends", monday), { title: "Tie up loose ends" });
+  });
+
   test("a repeat phrase becomes the recurrence, starting on the next matching day", () => {
     // Today matches: starts today, and "monday" isn't read as a one-off date.
     assert.deepEqual(quickParse("MOT status update every monday", monday), {

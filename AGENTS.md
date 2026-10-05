@@ -90,8 +90,10 @@ survives Obsidian edits:
   that occurrence into the Logbook and adds the next one, always dated after today, so missed weeks
   are skipped rather than recreated as overdue copies. When the user says a week isn't happening
   (holiday, meeting cancelled), use `skip`, not `complete`, so the Logbook stays truthful. Supported
-  rules: `every [N] day(s)/week(s)/month(s)/year(s)`, `every weekday`, `every <weekday>`, any of
-  them with `when done` to count from the completion date instead.
+  rules: `every [N] day(s)/week(s)/month(s)/year(s)`, `every weekday`, `every <weekday>`,
+  `every [N] month(s) on the last` (month end), any of them with `when done` to count from the
+  completion date instead. For anything due at month end, use `on the last`: plain `every month`
+  keeps the day number, so a 31st drifts to the 30th after November and the 28th after February.
 
 `review --json` is the main input for planning and reviews. It holds focus, today, overdue,
 due-within-7-days, Inbox (with age/`stale`), waiting (`followUpDue` / `noFollowUpDate` /

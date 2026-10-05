@@ -213,7 +213,8 @@ Each task shows its id in brackets, e.g. `[cc7xg7sv]`. That's the id `complete`,
   title to open it in Obsidian. The "Today ▾" title switches lists (the TUI's lists plus
   **All open**), ←/→ steps through them and Esc returns to Today.
 - **Quick capture** (⌃⌥Space from anywhere): one line into the Inbox. Dates ("fri") and repeats
-  ("every monday", "every 2 weeks", "every month from 1 Nov") are picked up, and the hint shows
+  ("every monday", "every 2 weeks", "every month from 1 Nov") and "end of …" phrases ("by end of
+  October", "EOW") are picked up, and the hint shows
   how the line was read before you press Enter. Recurring tasks show 🔁 in every list.
 - **Focus pill**: an always-on-top strip showing one focus task at a time. Toggle it from the
   popover or the icon's right-click menu.
