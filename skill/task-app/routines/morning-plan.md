@@ -32,6 +32,10 @@ Pick **3 candidate focus tasks**. In order of preference:
    `noActiveTask: true`, don't invent a task for it: list it under "Needs a next action".
 4. Otherwise the oldest meaningful open task on a goal-linked project.
 
+Within each step, prefer important tasks (priority `medium` or above) over normal ones. An
+urgent task that isn't important (due soon, normal or low priority) is a candidate for a quick
+slot or a nudge to someone else, not automatically a top-3 pick.
+
 Then check capacity: add up `estimateMinutes` for the 3 (estimating any that are missing, and
 saying so) and compare with the free blocks. If it doesn't fit, say which one to drop, not "the
 day is busy". Follow-ups in `waiting.followUpDue` are due today: list them, since each is

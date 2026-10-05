@@ -82,6 +82,17 @@ to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`
   the user. Its ⏳ scheduled date is the follow-up (`--followup`), so it resurfaces in Today on the
   day to chase it. When capturing "X will send me Y", use this rather than a plain task, and
   propose a follow-up date.
+- **Priority means importance, never urgency.** Dates carry urgency, so the two together give the
+  Eisenhower quadrants (the vault's `Eisenhower.md` query note groups them). Every task has a
+  priority, and the default is **normal** (Obsidian Tasks `priority.number` 3). Normal is stored
+  as *no emoji*: the Tasks format has no marker for it, so a missing emoji means normal, not
+  unset. To set a task back to normal, use `--priority none`. Decide the priority on every capture:
+  - `medium` 🔼 when the task moves a goal forward or dropping it would really cost something.
+    This is the "important" threshold.
+  - `high` ⏫ / `highest` 🔺 sparingly, for the few things that matter most this quarter.
+  - `low` 🔽 / `lowest` ⏬ for nice-to-haves.
+  - Never raise a priority because something is due soon. Set or tighten the date instead.
+  When you set anything other than normal, say which priority you chose in your confirmation.
 - **Estimates** (`--est 45m`) let a plan be checked against free calendar time.
 - **Recurring tasks** (`--recurrence "every monday"` plus a `--scheduled` first date) spawn their
   next occurrence on `complete`, always after today, so missed weeks don't pile up as overdue.
@@ -122,7 +133,8 @@ today's calendar, answered in a few lines.
 ## Natural-language capture
 
 For "add: call the dentist tomorrow" or a rough note: work out the title (short, verb-first),
-dates, project/area, goal, waiting-on and estimate yourself, and call `task-app add` with
+dates, project/area, goal, priority (normal unless it's clearly important or clearly
+optional; see "The model"), waiting-on and estimate yourself, and call `task-app add` with
 explicit flags. The CLI only guesses a date from the title when `add` gets no flags at all, so
 any flag keeps the title verbatim. For a bare Inbox item with no other flags, pass `--literal`.
 `add`/`edit` reject titles containing `[area:…]` or a task-app `--flag`; that
