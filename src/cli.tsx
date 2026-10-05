@@ -96,7 +96,11 @@ Usage:
   task-app                          Launch the interactive TUI.
   task-app init                     Set up (or update) the vault path.
 
-  task-app add <title...> [flags]   Add a task.
+  task-app add <title...> [flags]   Add a task. With no flags at all, a date
+                                     phrase in the title ("call Sam tomorrow") is
+                                     moved into --scheduled (never a past date).
+                                     Any flag keeps the title verbatim.
+    --literal                         Keep the title verbatim, no date-guessing
     --project <name>                 File under Tasks/Projects/<name>.md
     --area <name>                    File under Tasks/Areas/<name>.md
     --due <YYYY-MM-DD>                Hard deadline
@@ -129,6 +133,7 @@ Usage:
     --title <text> --due <date|none> --scheduled <date|none> --start <date|none>
     --priority <level|none> --recurrence <text|none> --tag <tag> (repeatable, adds)
     --goal <goal|none> --waiting <person|none> --followup <date|none> --est <dur|none>
+    --notes <text> (repeatable, adds a note line; skips one the task already has)
 
   task-app focus [<id>...] [--force] Set exactly these as today's top ${MAX_FOCUS} (#focus).
     --add <id> | --remove <id> | --clear   No args: show current focus.
@@ -216,7 +221,9 @@ async function main(): Promise<void> {
       input.tags = focusTags(input.tags ?? [], true);
     }
 
-    if (!input.due && !input.scheduled && !input.start) {
+    // The chrono date-guess is a safety net for a human typing a bare title. Any flag at all means
+    // a structured caller (usually an agent) who already chose the dates, so the title stays verbatim.
+    if (!Object.keys(args.flags).length) {
       const guess = quickParse(input.title);
       if (guess.scheduled) {
         input.title = guess.title;
@@ -325,7 +332,8 @@ async function main(): Promise<void> {
     const tags = applyMetaFlags(store, [...existing.tags, ...args.many("tag").map(normalizeTag)], args);
     if (tags.join(" ") !== existing.tags.join(" ")) patch.tags = tags;
 
-    const task = store.edit(id, patch);
+    store.edit(id, patch);
+    const task = store.addNotes(id, args.many("notes"));
     console.log(`Updated: ${formatTask(task!)}`);
     return;
   }
@@ -475,7 +483,7 @@ async function main(): Promise<void> {
     if (args.bool("json")) return console.log(JSON.stringify(notes, null, 2));
     if (!notes.length) return console.log(`(no notes changed since ${since})`);
     for (const n of notes) {
-      const actions = n.actions ? `${n.actions.split("\n").filter((l) => l.trim()).length} action line(s)` : "no ## Actions";
+      const actions = n.actions ? `${n.actionCount} action(s)` : "no ## Actions";
       console.log(`${n.modified}  ${n.path}  — ${actions}, ${n.captured.length} task(s) captured`);
     }
     return;

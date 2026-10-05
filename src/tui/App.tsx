@@ -184,11 +184,12 @@ export function App({ config }: { config: AppConfig }) {
     if (!task) return;
     try {
       const args = parseArgs(tokenize(text));
-      const { fieldPatch, dest } = parseFullEdit(task, args);
+      const { fieldPatch, dest, notes } = parseFullEdit(task, args);
       store.edit(task.id, fieldPatch);
       if (dest.project !== task.project || dest.area !== task.area || dest.someday !== task.someday) {
         store.move(task.id, dest);
       }
+      store.addNotes(task.id, notes);
       setStatus(`Updated: ${fieldPatch.title}`);
     } catch (err) {
       setStatus(`Edit failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -237,8 +238,8 @@ export function App({ config }: { config: AppConfig }) {
             <TextInput value={editDraft} onChange={setEditDraft} onSubmit={submitEdit} />
           </Box>
           <Text dimColor>
-            --title --due --scheduled --start --priority --recurrence --project --area --someday
-            (delete a flag to clear it) · Esc to cancel
+            --title --due --scheduled --start --priority --recurrence --project --area --someday --notes
+            (delete a flag to clear it; --notes adds a note) · Esc to cancel
           </Text>
         </Box>
       )}

@@ -41,7 +41,8 @@ handle.
 **No AI in the app, and no API keys.** An agent session already has a capable model and
 authenticated connectors, so task-app doesn't duplicate them. It exposes scriptable commands
 with `--json` output, and the agent brings the judgment. The CLI's own natural-date parsing
-(chrono-node) is only a fallback for people typing into a plain terminal.
+(chrono-node) is only a fallback for people typing into a plain terminal. It runs only when
+`add` gets no flags, and never picks a past date.
 
 **Propose, then act.** The agent suggests and you decide. Today's top 3, calendar focus blocks,
 triage moves and captures from notes are all proposals until you say yes. Scheduled runs that
@@ -141,6 +142,7 @@ skill/task-app/
     shutdown.md            # "wrap up": done, carry-over, to capture, draft top 3 (## Shutdown)
     weekly-review.md       # "weekly review": the checklist, plus Friday's shutdown (## Weekly Review)
     meeting-capture.md     # "process my notes": notes → tasks and waiting-ons, after a yes
+    triage-inbox.md        # "triage my inbox": a home for every Inbox item, applied after a yes
 ```
 
 The skill uses the same rules as `AGENTS.md`: never hand-edit task lines, and propose before
@@ -176,6 +178,7 @@ the times below are suggestions, and the routines work whenever they run.
 | Shutdown | Mon–Thu 16:30 | `## Shutdown`: done, carry-over, actions to capture, draft top 3 for tomorrow |
 | Weekly review | Fri 16:00 (includes Friday's shutdown) | `## Weekly Review`: Inbox, waiting-on, goal health, next week |
 | Meeting-notes capture | on demand ("process my notes") | nothing: proposes tasks, adds them when you say yes |
+| Inbox triage | on demand ("triage my inbox"); part of the weekly review | nothing: proposes a home for each Inbox item, files them when you say yes |
 
 Meeting-notes capture uses judgment: it classifies each action as a task, a waiting-on item or
 a skip, dedups by meaning, and writes clean titles. `task-app capture` is the blunt fallback. It
@@ -195,7 +198,7 @@ Everything works without an agent too, just without the judgment.
 | `j` / `k` or ↑/↓ | move the selection |
 | `space` / `enter` | complete the selected task |
 | `a` | quick-add (plain text; a date like "tomorrow" is picked up) |
-| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field |
+| `e` | edit: a pre-filled `--title … --due … --project …` line; delete a flag to clear that field, or add `--notes "…"` to add a note |
 | `x` | sweep completed tasks into `Logbook.md` |
 | `c` | capture `## Actions` bullets from untouched notes (see `task-app capture`) |
 | `q` / `esc` | quit |
@@ -252,7 +255,7 @@ A task line:
 | `list [view] [--json]` | `inbox`, `today` (default), `overdue`, `upcoming`, `anytime`, `someday`, `logbook`, `all`, `focus`, `waiting`, `recurring`, `project:<name>`, `area:<name>`, `goal:<name>` |
 | `complete` / `uncomplete <id>` | Tick or untick a task. A recurring task spawns its next occurrence, always after today (unticking removes it again if untouched) |
 | `skip <id>` | Move a recurring task to its next occurrence without completing it |
-| `edit <id> [flags]` | Change fields in place; pass `none` to clear one |
+| `edit <id> [flags]` | Change fields in place; pass `none` to clear one. `--notes` adds a note line, skipping one the task already has |
 | `move <id>` | `--project`, `--area`, `--someday` or `--inbox` |
 | `focus [<id>…]` | Set exactly these as today's top 3; `--add`, `--remove`, `--clear`; no args shows them |
 | `goals [--json]` | Goals with open, focus and recently-done counts |

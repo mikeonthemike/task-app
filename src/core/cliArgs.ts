@@ -13,7 +13,7 @@ export interface ParsedArgs {
 }
 
 /** Flags that never take a value, so `add --focus "Call Sam"` keeps "Call Sam" as the title. */
-export const BOOLEAN_FLAGS = new Set(["someday", "focus", "force", "json", "fix", "clear", "inbox", "previous", "content", "dry-run"]);
+export const BOOLEAN_FLAGS = new Set(["someday", "focus", "force", "json", "fix", "clear", "inbox", "previous", "content", "dry-run", "literal"]);
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
@@ -95,10 +95,12 @@ export function formatTask(t: Task): string {
  * desired state for a task, treating an omitted field as "clear it" rather than
  * "leave unchanged" — this is meant for an editor that's pre-filled with the task's
  * current values, where deleting a flag is how the user expresses clearing it.
+ * `--notes` is the exception: it isn't pre-filled and only adds, as on `task-app edit`.
  */
 export interface FullEditResult {
   fieldPatch: Pick<Task, "title" | "due" | "scheduled" | "start" | "priority" | "recurrence">;
   dest: { project: string | null; area: string | null; someday: boolean };
+  notes: string[];
 }
 
 export function parseFullEdit(task: Task, args: ParsedArgs): FullEditResult {
@@ -123,5 +125,6 @@ export function parseFullEdit(task: Task, args: ParsedArgs): FullEditResult {
       area: project ? null : (args.one("area") ?? null),
       someday: args.bool("someday"),
     },
+    notes: args.many("notes"),
   };
 }

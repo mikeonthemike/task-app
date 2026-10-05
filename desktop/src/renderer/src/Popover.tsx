@@ -4,6 +4,7 @@ import { CaptureInput } from "./Capture";
 import { longDate } from "./format";
 import { ListPicker } from "./ListPicker";
 import { ListView } from "./ListView";
+import { TaskMenu, TaskMenuContext, type MenuTarget } from "./TaskMenu";
 import { TaskRow } from "./TaskRow";
 import { useSnapshot } from "./useSnapshot";
 
@@ -12,6 +13,7 @@ export function Popover() {
   const [error, setError] = useState<string | null>(null);
   const [list, setList] = useState<ListId>("today");
   const [picking, setPicking] = useState(false);
+  const [menu, setMenu] = useState<MenuTarget | null>(null);
 
   // Like h/l in the TUI: ←/→ step through the lists (unless you're typing). Esc backs out.
   useEffect(() => {
@@ -57,6 +59,7 @@ export function Popover() {
   const subtitle = current?.kind === "project" ? "Project" : current?.kind === "area" ? "Area" : current?.count ? `${current.count} open` : "";
 
   return (
+    <TaskMenuContext.Provider value={setMenu}>
     <div className="popover">
       <header>
         <div>
@@ -87,71 +90,79 @@ export function Popover() {
         </div>
       </header>
 
-      <main>
-        {picking && (
-          <ListPicker
-            lists={snap.lists}
-            current={list}
-            onPick={(id) => {
-              setList(id);
-              setPicking(false);
-            }}
-          />
-        )}
-        {snap.error ? (
-          <div className="banner">{snap.error}</div>
-        ) : list !== "today" ? (
-          <ListView id={list} snap={snap} onError={setError} />
-        ) : (
-          <>
-            <section>
-              <h2>
-                Top 3 {!snap.focus.length && snap.proposed.length > 0 && <span className="badge">Proposed</span>}
-              </h2>
-              {snap.focus.length ? (
-                rows(snap.focus)
-              ) : snap.proposed.length ? (
-                <>
-                  {rows(snap.proposed)}
-                  <p className="empty">From today's plan. Reply “confirm” to Claude to lock these in.</p>
-                </>
-              ) : (
-                <p className="empty">No top 3 yet. Ask Claude to plan your day.</p>
-              )}
-            </section>
-
-            {snap.plan && (
-              <details className="plan">
-                <summary>Plan</summary>
-                <pre>{snap.plan}</pre>
-              </details>
-            )}
-
-            {snap.followUps.length > 0 && (
+      <div className="content">
+        <main>
+          {snap.error ? (
+            <div className="banner">{snap.error}</div>
+          ) : list !== "today" ? (
+            <ListView id={list} snap={snap} onError={setError} />
+          ) : (
+            <>
               <section>
-                <h2>Follow up</h2>
-                {rows(snap.followUps)}
+                <h2>
+                  Top 3 {!snap.focus.length && snap.proposed.length > 0 && <span className="badge">Proposed</span>}
+                </h2>
+                {snap.focus.length ? (
+                  rows(snap.focus)
+                ) : snap.proposed.length ? (
+                  <>
+                    {rows(snap.proposed)}
+                    <p className="empty">From today's plan. Reply “confirm” to Claude to lock these in.</p>
+                  </>
+                ) : (
+                  <p className="empty">No top 3 yet. Ask Claude to plan your day.</p>
+                )}
               </section>
-            )}
 
-            <section>
-              <h2>
-                Today <span className="count">{snap.today.length || ""}</span>
-              </h2>
-              {snap.today.length ? rows(snap.today) : <p className="empty">Nothing else scheduled for today.</p>}
-            </section>
+              {snap.plan && (
+                <details className="plan">
+                  <summary>Plan</summary>
+                  <pre>{snap.plan}</pre>
+                </details>
+              )}
 
-            {snap.doneToday.length > 0 && (
-              <details className="done-today">
-                <summary>Done today · {snap.doneToday.length}</summary>
-                {rows(snap.doneToday)}
-              </details>
-            )}
+              {snap.followUps.length > 0 && (
+                <section>
+                  <h2>Follow up</h2>
+                  {rows(snap.followUps)}
+                </section>
+              )}
+
+              <section>
+                <h2>
+                  Today <span className="count">{snap.today.length || ""}</span>
+                </h2>
+                {snap.today.length ? rows(snap.today) : <p className="empty">Nothing else scheduled for today.</p>}
+              </section>
+
+              {snap.doneToday.length > 0 && (
+                <details className="done-today">
+                  <summary>Done today · {snap.doneToday.length}</summary>
+                  {rows(snap.doneToday)}
+                </details>
+              )}
+            </>
+          )}
+        </main>
+
+        {/* Outside <main> so it stays put over the list, wherever the list is scrolled to. */}
+        {picking && (
+          <>
+            <div className="picker-backdrop" onMouseDown={() => setPicking(false)} />
+            <ListPicker
+              lists={snap.lists}
+              current={list}
+              onPick={(id) => {
+                setList(id);
+                setPicking(false);
+              }}
+            />
           </>
         )}
-      </main>
+      </div>
 
       {error && <div className="toast">{error}</div>}
+      {menu && <TaskMenu target={menu} lists={snap.lists} onClose={() => setMenu(null)} onError={setError} />}
 
       <footer>
         <CaptureInput today={snap.date} />
@@ -160,5 +171,6 @@ export function Popover() {
         </span>
       </footer>
     </div>
+    </TaskMenuContext.Provider>
   );
 }

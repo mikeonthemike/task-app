@@ -25,14 +25,14 @@ task-app add "<title>" [--project P] [--area A] [--due YYYY-MM-DD] \
   [--scheduled YYYY-MM-DD] [--start YYYY-MM-DD] \
   [--priority highest|high|medium|low|lowest] [--recurrence "every week"] \
   [--tag foo] [--tag bar] [--notes "..."] [--someday] \
-  [--goal G] [--focus] [--waiting "Person"] [--followup YYYY-MM-DD] [--est 30m]
+  [--goal G] [--focus] [--waiting "Person"] [--followup YYYY-MM-DD] [--est 30m] [--literal]
 
 task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|recurring|project:<name>|area:<name>|goal:<name>] [--json]
 task-app complete <id>
 task-app uncomplete <id>          # also removes the untouched next occurrence of a recurring task
 task-app skip <id>                # recurring task → next occurrence, nothing logged (holiday week, cancelled)
 task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] [--recurrence R|none] [--tag T] \
-  [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none]
+  [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none] [--notes "..."]   # --notes adds a line
 task-app move <id> [--project P | --area A | --someday | --inbox]
 task-app focus <id> [<id> <id>]   # sets EXACTLY these as today's top 3 (untags the rest); --add/--remove/--clear; no args = show
 task-app goals [--json]           # goals + open/focus/done-in-7-days counts
@@ -116,6 +116,11 @@ title vs. project vs. priority, and call `task-app add` with explicit flags. Onl
 rely on the CLI's own naive date-guessing fallback (chrono-node) as a safety net for
 when a human runs `task-app add` directly from a plain terminal without you.
 
+That fallback only runs when `add` gets **no flags at all**, and it never picks a past date.
+Any flag keeps the title exactly as given, so "week of 12 Oct" or "weekend" in a title stays
+put. If you're adding a bare Inbox item with no other flags, pass `--literal` so the title
+isn't parsed.
+
 ## Pulling in Gmail / Calendar / Slack
 
 Use your session's own authenticated connectors (MCP servers or equivalent) for these.
@@ -146,6 +151,7 @@ follow it**:
 - `shutdown.md`: "wrap up", or the 16:30 Mon–Thu scheduled task
 - `weekly-review.md`: "weekly review", or the Friday 16:00 scheduled task (it includes Friday's shutdown)
 - `meeting-capture.md`: "process my notes", on demand only
+- `triage-inbox.md`: "triage my inbox", on demand (the weekly review includes it; the shutdown offers it when items go stale)
 
 Rules they all share: **propose, then act.** The user confirms the top 3 before
 `task-app focus` runs, and calendar focus blocks are created only after an explicit yes.

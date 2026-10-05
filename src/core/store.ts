@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config.js";
 import { nanoid } from "nanoid";
 import { nextOccurrence } from "./recurrence.js";
-import { appendTask, type ScanOptions, completeTask, deleteTaskLine, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
+import { appendNotes, appendTask, type ScanOptions, completeTask, deleteTaskLine, insertAbove, listAreaFiles, listProjectFiles, moveTask, scanVault, sweepCompletedTasks, updateTask } from "./vault.js";
 import type { NewTaskInput, Task } from "./task.js";
 import { isPastOrToday, isToday, todayStr } from "./task.js";
 import { type Goal, type GoalsFile, loadGoals, readProjectMeta } from "./goals.js";
@@ -266,6 +266,17 @@ export class TaskStore {
     const task = this.byId(id);
     if (!task) return undefined;
     const updated = updateTask({ ...task, ...patch });
+    this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
+    return updated;
+  }
+
+  /** Adds note lines to a task, skipping blanks and any it already has, so a re-run never duplicates. */
+  addNotes(id: string, notes: string[]): Task | undefined {
+    const task = this.byId(id);
+    if (!task) return undefined;
+    const fresh = [...new Set(notes.map((n) => n.trim()).filter(Boolean))].filter((n) => !task.notes.includes(n));
+    if (!fresh.length) return task;
+    const updated = appendNotes(task, fresh);
     this.tasks = this.tasks.map((t) => (t.id === id ? updated : t));
     return updated;
   }

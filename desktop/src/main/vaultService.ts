@@ -6,7 +6,7 @@ import { taskJson } from "../../../src/core/json.js";
 import { quickParse } from "../../../src/core/quickParse.js";
 import { TaskStore } from "../../../src/core/store.js";
 import { type Task, todayStr } from "../../../src/core/task.js";
-import type { CapturePreview, ListId, ListInfo, Result, Snapshot, WidgetTask } from "../shared/api.js";
+import type { CapturePreview, ListId, MoveDest, ListInfo, Result, Snapshot, WidgetTask } from "../shared/api.js";
 
 const RESCAN_DEBOUNCE_MS = 300;
 const DAILY_NOTE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
@@ -232,6 +232,12 @@ export class VaultService {
   uncomplete(id: string): Result {
     return this.mutate(id, (store, realId) => {
       if (!store.uncomplete(realId)) throw new Error("That task is gone. It may have been edited elsewhere.");
+    });
+  }
+
+  move(id: string, dest: MoveDest): Result {
+    return this.mutate(id, (store, realId) => {
+      if (!store.move(realId, dest)) throw new Error("That task is gone. It may have been edited elsewhere.");
     });
   }
 

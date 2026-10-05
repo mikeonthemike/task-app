@@ -34,13 +34,14 @@ with explicit flags.
 ```bash
 task-app add "<title>" [--project P] [--area A] [--due D] [--scheduled D] [--start D] \
   [--priority highest|high|medium|low|lowest] [--recurrence "every week"] [--tag t] [--notes "..."] [--someday] \
-  [--goal G] [--focus] [--waiting "Person"] [--followup D] [--est 30m]
+  [--goal G] [--focus] [--waiting "Person"] [--followup D] [--est 30m] [--literal]
 task-app list [inbox|today|overdue|upcoming|anytime|someday|logbook|all|focus|waiting|recurring|project:<n>|area:<n>|goal:<n>] [--json]
 task-app complete <id>            # recurring tasks get their next occurrence automatically (always after today)
 task-app uncomplete <id>          # also removes that untouched next occurrence
 task-app skip <id>                # recurring task → next occurrence without logging it
 task-app edit <id> [--title T] [--due D|none] [--scheduled D|none] [--start D|none] [--priority P|none] \
-  [--recurrence R|none] [--tag T] [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none]
+  [--recurrence R|none] [--tag T] [--goal G|none] [--waiting P|none] [--followup D|none] [--est E|none] \
+  [--notes "..."]   # --notes adds a note line (skips one already there)
 task-app move <id> [--project P | --area A | --someday | --inbox]
 task-app focus <id> [<id> <id>]   # EXACTLY these become today's top 3; --add/--remove/--clear; no args = show
 task-app goals [--json]
@@ -101,6 +102,7 @@ Each routine has its own file next to this one. Read the relevant file and follo
 | End of day, or "shut down" / "wrap up the day" | Evening shutdown | `routines/shutdown.md` |
 | Friday afternoon, or "weekly review" | Weekly review | `routines/weekly-review.md` |
 | "Process my notes", "capture actions from…" | Meeting-notes capture | `routines/meeting-capture.md` |
+| "Triage my inbox" / "clear the inbox"; step 2 of the weekly review | Inbox triage | `routines/triage-inbox.md` |
 | Part of the morning plan, or "add meeting prep to my note" | Meeting context (`## Meetings`) | `routines/meeting-prep.md` |
 
 A full brief on one meeting that isn't going into the note ("prep me for my 2pm") belongs to a
@@ -120,7 +122,9 @@ today's calendar, answered in a few lines.
 
 For "add: call the dentist tomorrow" or a rough note: work out the title (short, verb-first),
 dates, project/area, goal, waiting-on and estimate yourself, and call `task-app add` with
-explicit flags. `add`/`edit` reject titles containing `[area:…]` or a task-app `--flag`; that
+explicit flags. The CLI only guesses a date from the title when `add` gets no flags at all, so
+any flag keeps the title verbatim. For a bare Inbox item with no other flags, pass `--literal`.
+`add`/`edit` reject titles containing `[area:…]` or a task-app `--flag`; that
 means a flag got quoted into the title, so fix the command.
 
 ## Pulling in Gmail / Calendar / Slack

@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
-import { parseArgs } from "../src/core/cliArgs.js";
+import { parseArgs, parseFullEdit, tokenize } from "../src/core/cliArgs.js";
+import { quickParse } from "../src/core/quickParse.js";
 import { proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
 import { loadGoals, resolveGoal, updateProjectMeta } from "../src/core/goals.js";
 import { estimateTags, focusTags, parseDuration, waitingOn, waitingTags } from "../src/core/meta.js";
@@ -70,6 +71,15 @@ describe("tag metadata", () => {
     assert.deepEqual(args.positional, ["Call", "Sam"]);
     assert.equal(args.one("est"), "30m");
     assert.ok(args.bool("focus") && args.bool("someday"));
+  });
+});
+
+describe("full edit line", () => {
+  test("--notes adds notes and isn't treated as a field to clear", () => {
+    const task = { title: "Sit down with Sam", notes: ["From: A.md"] } as Parameters<typeof parseFullEdit>[0];
+    const edit = parseFullEdit(task, parseArgs(tokenize('--title "Sit down with Sam" --notes "From: B.md"')));
+    assert.deepEqual(edit.notes, ["From: B.md"]);
+    assert.deepEqual(parseFullEdit(task, parseArgs(tokenize('--title "Sit down with Sam"'))).notes, []);
   });
 });
 
@@ -223,6 +233,19 @@ describe("CLI end to end", () => {
     assert.equal(after.estimateMinutes, null);
   });
 
+  test("edit --notes appends note lines after existing ones and skips duplicates", () => {
+    cli(["add", "Sit down with Sam", "--area", "Work", "--notes", "From: Intro with Mark.md"]);
+    write("Tasks/Areas/Work.md", readFileSync(join(config.vaultPath, "Tasks/Areas/Work.md"), "utf8") + "- [ ] Next task\n");
+    const [t] = JSON.parse(cli(["list", "all", "--json"])).filter((x: { title: string }) => x.title === "Sit down with Sam");
+    cli(["edit", t.id, "--notes", "From: Intro with Sam.md", "--title", "Sit down with Sam and Alex"]);
+    cli(["edit", t.id, "--notes", "From: Intro with Sam.md"]);
+    const after = JSON.parse(cli(["list", "all", "--json"]));
+    const sam = after.find((x: { id: string }) => x.id === t.id);
+    assert.equal(sam.title, "Sit down with Sam and Alex");
+    assert.deepEqual(sam.notes, ["From: Intro with Mark.md", "From: Intro with Sam.md"]);
+    assert.ok(after.some((x: { title: string }) => x.title === "Next task"));
+  });
+
   test("note write reads the body from stdin", () => {
     cli(["note", "write", "--section", "Plan", "--date", "2026-09-24"], "1. Focus one\n2. Focus two\n");
     assert.equal(cli(["note", "show", "--section", "Plan", "--date", "2026-09-24"]).trim(), "1. Focus one\n2. Focus two");
@@ -230,8 +253,44 @@ describe("CLI end to end", () => {
     assert.equal(json.sections.Plan, "1. Focus one\n2. Focus two");
   });
 
+  test("add with any flag keeps the title verbatim and guesses no date", () => {
+    const titles = [
+      "Add dry runs (week of 12 Oct), go/no-go checklist and rollout waves to the CRM plan",
+      "Confirm the Acme plugin needs no client action; plan weekend cutover cover",
+    ];
+    cli(["add", titles[0], "--project", "CRM", "--notes", "context"]);
+    cli(["add", titles[1], "--tag", "work"]);
+    cli(["add", "Book the venue for Friday", "--literal"]);
+    const tasks = JSON.parse(cli(["list", "all", "--json"]));
+    assert.deepEqual(tasks.map((t: { title: string }) => t.title).sort(), [...titles, "Book the venue for Friday"].sort());
+    for (const t of tasks) assert.equal(t.scheduled, null, t.title);
+  });
+
+  test("add with no flags still moves a date phrase out of the title", () => {
+    cli(["add", "Call Sam tomorrow"]);
+    const [t] = JSON.parse(cli(["list", "all", "--json"]));
+    assert.equal(t.title, "Call Sam");
+    assert.equal(t.scheduled, addDays(todayStr(), 1));
+  });
+
   test("unknown goal is rejected with the valid names", () => {
     assert.throws(() => cli(["add", "X", "--goal", "Nope"]), /Unknown goal "Nope"/);
+  });
+});
+
+describe("quickParse fallback", () => {
+  const monday = new Date(2026, 8, 28, 9, 0); // 2026-09-28
+
+  test("never infers a past date", () => {
+    assert.equal(quickParse("plan weekend cutover cover", monday).scheduled, "2026-10-03");
+    assert.equal(quickParse("Review the deck friday", monday).scheduled, "2026-10-02");
+    assert.equal(quickParse("Send the report yesterday", monday).scheduled, undefined);
+    assert.equal(quickParse("Send the report yesterday", monday).title, "Send the report yesterday");
+  });
+
+  test("pulls the date out and tidies empty brackets", () => {
+    assert.deepEqual(quickParse("Dry runs (12 Oct) for CRM", monday), { title: "Dry runs for CRM", scheduled: "2026-10-12" });
+    assert.deepEqual(quickParse("No date here", monday), { title: "No date here" });
   });
 });
 
