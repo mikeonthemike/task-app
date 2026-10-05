@@ -334,6 +334,19 @@ describe("quickParse fallback", () => {
       recurrence: "every friday",
       scheduled: "2026-10-02",
     });
+    // A monthly repeat starting on a month's last day is a month-end rule too.
+    for (const [text, scheduled] of [
+      ["Invoice every month from 31 Oct", "2026-10-31"],
+      ["Invoice every month from 30 Nov", "2026-11-30"],
+      ["Invoice every month by end of October", "2026-10-31"],
+    ]) {
+      assert.deepEqual(quickParse(text, monday), { title: "Invoice", recurrence: "every month on the last", scheduled }, text);
+    }
+    assert.equal(quickParse("Board pack every 3 months from 31 Dec", monday).recurrence, "every 3 months on the last");
+    // Not for other days, "when done", or other units.
+    assert.equal(quickParse("Rent every month from 30 Oct", monday).recurrence, "every month");
+    assert.equal(quickParse("Haircut every month when done from 31 Oct", monday).recurrence, "every month when done");
+    assert.equal(quickParse("Review every week from 31 Oct", monday).recurrence, "every week");
     // No end-of rule for a year: the repeat stays plain and the end-of reader dates it.
     assert.deepEqual(quickParse("Goals review every year by end of year", monday), {
       title: "Goals review",

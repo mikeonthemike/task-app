@@ -63,6 +63,17 @@ const END_RE = new RegExp(
 
 const lastOfMonth = (y: number, m: number) => iso(new Date(y, m + 1, 0)); // m is 0-based
 
+/**
+ * A monthly repeat starting on a month's last day ("every month from 31 Oct") means month end.
+ * Plain "every month" would keep the day number and drift (31 Oct → 30 Nov → 30 Dec …), so it
+ * becomes "on the last". "when done" counts from completion, so it's left as it is.
+ */
+function anchorRule(rule: string, date: string): string {
+  if (!/^every (?:\d+ )?months?$/.test(rule)) return rule;
+  const [y, m] = date.split("-").map(Number);
+  return date === lastOfMonth(y, m - 1) ? `${rule} on the last` : rule;
+}
+
 function takeEndOf(text: string, now: Date): { date: string; rest: string } | null {
   const m = END_RE.exec(text);
   if (!m) return null;
@@ -113,7 +124,7 @@ export function quickParse(text: string, now: Date = new Date()): NewTaskInput {
 
   const endOf = takeEndOf(source, now);
   if (endOf && endOf.date >= today) {
-    return { title: tidy(endOf.rest) || text.trim(), scheduled: endOf.date, ...(repeat && { recurrence: repeat.rule }) };
+    return { title: tidy(endOf.rest) || text.trim(), scheduled: endOf.date, ...(repeat && { recurrence: anchorRule(repeat.rule, endOf.date) }) };
   }
 
   const results = chrono.parse(source, now, { forwardDate: true });
@@ -127,5 +138,6 @@ export function quickParse(text: string, now: Date = new Date()): NewTaskInput {
   // "by friday", "due 12 Oct": the word introducing the date goes with it ("Pass by the shop" keeps its "by").
   const before = source.slice(0, result.index).replace(/(^|[\s(])(?:due(?:\s+(?:by|on))?|by)\s*$/i, "$1");
   const title = tidy(before + source.slice(result.index + result.text.length));
-  return { title: title || text.trim(), scheduled: iso(result.date()), ...(repeat && { recurrence: repeat.rule }) };
+  const scheduled = iso(result.date());
+  return { title: title || text.trim(), scheduled, ...(repeat && { recurrence: anchorRule(repeat.rule, scheduled) }) };
 }
