@@ -86,7 +86,8 @@ to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`
 - **Recurring tasks** (`--recurrence "every monday"` plus a `--scheduled` first date) spawn their
   next occurrence on `complete`, always after today, so missed weeks don't pile up as overdue.
   When a week isn't happening, `skip` it rather than completing it. Rules: `every [N]
-  day/week/month/year(s)`, `every weekday`, `every <weekday>`, optionally `… when done`.
+  day/week/month/year(s)`, `every weekday`, `every <weekday>`, `every [N] month(s) on the last`
+  (month end: use this, not `every month` from a 31st, which drifts), optionally `… when done`.
 - **The daily note** (`<vault>/YYYY-MM-DD.md`) is the master record of the day. task-app owns only
   its `## Plan`, `## Meetings`, `## Shutdown` and `## Weekly Review` sections, written with `note write`. Write
   them as plain lists that reference task ids like `(abc123)`, **never `- [ ]` checkboxes**

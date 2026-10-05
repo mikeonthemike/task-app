@@ -16,30 +16,37 @@ const DAY_RE = "monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue
  * "every monday", "every 2 weeks", "every other week", "every weekday", "every month when done":
  * the rules `nextDate` understands, plus day abbreviations and "other" (= 2). A following "from" or
  * "starting" goes with the rule, so chrono sees only the date ("from 12" would read as noon).
+ * "every month by end of month" / "on the last day" / "every month end" is the month's last day,
+ * whatever its length; "every week by end of week" is every Friday.
  */
 const RULE_RE = new RegExp(
-  `\\bevery\\s+(?:(weekday)|(${DAY_RE})|(?:(\\d+|other)\\s+)?(day|week|month|year)s?)\\b(\\s+when\\s+done\\b)?(?:\\s+(?:from|starting(?:\\s+on)?)\\b)?`,
+  `\\bevery\\s+(?:(weekday)|(${DAY_RE})|(?:(\\d+|other)\\s+)?(day|week|month|year)s?)\\b(\\s+(?:(?:(?:due\\s+)?by|on|at)\\s+(?:the\\s+)?(?:end\\s+of\\s+(?:the\\s+)?(?:month|week)|last(?:\\s+day)?(?:\\s+of\\s+(?:the\\s+)?month)?)|end)\\b)?(\\s+when\\s+done\\b)?(?:\\s+(?:from|starting(?:\\s+on)?)\\b)?`,
   "i",
 );
 
 function takeRule(text: string): { rule: string; rest: string } | null {
   const m = RULE_RE.exec(text);
   if (!m) return null;
-  const [, weekday, day, n, unit, whenDone] = m;
+  const [whole, weekday, day, n, unit, atEnd, whenDone] = m;
   let rule: string;
+  let keep = "";
   if (weekday) rule = "every weekday";
   else if (day) rule = `every ${DAYS[day.toLowerCase()] ?? day.toLowerCase()}`;
   else {
     const count = n?.toLowerCase() === "other" ? 2 : Number(n ?? 1);
     rule = count === 1 ? `every ${unit.toLowerCase()}` : `every ${count} ${unit.toLowerCase()}s`;
+    const u = unit.toLowerCase();
+    if (atEnd && u === "month" && !/week/i.test(atEnd)) rule += " on the last";
+    else if (atEnd && u === "week" && count === 1 && /week/i.test(atEnd)) rule = "every friday";
+    else if (atEnd) keep = atEnd; // no end-of rule for this unit; the end-of reader dates it instead
   }
   if (whenDone) rule += " when done";
-  return { rule, rest: text.slice(0, m.index) + text.slice(m.index + m[0].length) };
+  return { rule, rest: `${text.slice(0, m.index)} ${keep} ${text.slice(m.index + whole.length)}` };
 }
 
-/** First occurrence on or after today: the next matching day for a weekday rule, today otherwise. */
+/** First occurrence on or after today: the next matching day for a weekday or month-end rule, today otherwise. */
 function firstOccurrence(rule: string, today: string): string {
-  return /^every (weekday|[a-z]+day)\b/.test(rule) ? nextDate(rule, addDays(today, -1))! : today;
+  return /^every (weekday|[a-z]+day)\b| on the last/.test(rule) ? nextDate(rule, addDays(today, -1))! : today;
 }
 
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];

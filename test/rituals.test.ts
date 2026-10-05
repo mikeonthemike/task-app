@@ -36,6 +36,23 @@ describe("recurrence rules", () => {
     assert.equal(nextDate("every full moon", "2026-09-23"), null);
   });
 
+  test("'every month on the last' holds the month's last day, whatever its length", () => {
+    const rule = "every month on the last";
+    const seen: string[] = [];
+    for (let d = "2026-10-31", i = 0; i < 6; i++) seen.push((d = nextDate(rule, d)!));
+    assert.deepEqual(seen, ["2026-11-30", "2026-12-31", "2027-01-31", "2027-02-28", "2027-03-31", "2027-04-30"]);
+    assert.equal(nextDate("every 3 months on the last", "2026-12-31"), "2027-03-31");
+    assert.equal(nextDate("every month on the last day", "2028-01-31"), "2028-02-29"); // leap year
+    // From mid-month, the end of the same month.
+    assert.equal(nextDate(rule, "2026-10-06"), "2026-10-31");
+    // Catch-up still lands after today, on a month end.
+    assert.deepEqual(nextOccurrence(rule, { start: null, scheduled: "2026-07-31", due: null }, "2026-10-06"), {
+      start: null,
+      scheduled: "2026-10-31",
+      due: null,
+    });
+  });
+
   test("dates move together; 'when done' counts from today; no dates → scheduled", () => {
     assert.deepEqual(nextOccurrence("every week", { start: null, scheduled: "2026-09-21", due: "2026-09-23" }, "2026-09-23"), {
       start: null,

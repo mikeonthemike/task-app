@@ -16,10 +16,18 @@ function addMonths(date: string, months: number): string {
   return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-${String(target.getDate()).padStart(2, "0")}`;
 }
 
+/** `month` is 0-based and may run past December. */
+function lastDayOfMonth(year: number, month: number): string {
+  const d = new Date(year, month + 1, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * The next date after `from` for an Obsidian Tasks-style rule, or null when the rule
  * isn't one we understand. Supports: every [N] day(s)/week(s)/month(s)/year(s),
- * every weekday, every <weekday name>.
+ * every weekday, every <weekday name>, every [N] month(s) on the last (the Tasks plugin's
+ * wording for the month's last day, which plain "every month" can't hold: 31 Oct → 30 Nov
+ * → 30 Dec … drifts).
  */
 export function nextDate(rule: string, from: string): string | null {
   const r = rule.trim().toLowerCase().replace(/\s+when done$/, "");
@@ -33,6 +41,12 @@ export function nextDate(rule: string, from: string): string | null {
       case "month": return addMonths(from, n);
       case "year": return addMonths(from, 12 * n);
     }
+  }
+  if ((m = /^every (?:(\d+) )?months? on the last(?: day)?$/.exec(r))) {
+    // The end of `from`'s month if that's still ahead, else the end of the month N on.
+    const [y, mo] = from.split("-").map(Number);
+    const thisEnd = lastDayOfMonth(y, mo - 1);
+    return thisEnd > from ? thisEnd : lastDayOfMonth(y, mo - 1 + Number(m[1] ?? 1));
   }
   if (r === "every weekday") {
     let d = addDays(from, 1);
