@@ -27,7 +27,9 @@ If `review.vaultIssues` isn't empty, mention it in one line; don't run `doctor -
 
 Pick **3 candidate focus tasks**. In order of preference:
 1. The previous shutdown's "Draft top 3 for tomorrow" when it's still open and still makes sense.
-2. Overdue or due today/tomorrow (`overdue`, `dueSoon`).
+2. Overdue or due today/tomorrow (`overdue`, `dueSoon`). A task that is overdue only by its ⏳
+   (it's in `scheduledPastNoDue`) has no deadline, so rank it below real due dates. Don't re-date
+   it here; the weekly review asks about those.
 3. Work on a goal with `noActiveTask: false` that has had nothing done recently. If a goal has
    `noActiveTask: true`, don't invent a task for it: list it under "Needs a next action".
 4. Otherwise the oldest meaningful open task on a goal-linked project.

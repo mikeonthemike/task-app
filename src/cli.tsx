@@ -425,6 +425,12 @@ async function main(): Promise<void> {
     block("Follow-ups due", review.waiting.followUpDue);
     block("Waiting with no follow-up date", review.waiting.noFollowUpDate);
     block("Stale in Inbox", review.inbox.filter((t) => t.stale));
+    if (review.scheduledPastNoDue.length) {
+      console.log("\nPast scheduled date, no due date (overdue in Today, not urgent in the matrix):");
+      for (const t of review.scheduledPastNoDue) {
+        console.log(`  - ${t.title} (${t.id}) ⏳ ${t.scheduled}, ${t.daysPast} day(s) ago${t.stale ? " (stale)" : ""}`);
+      }
+    }
     const idle = review.goals.filter((g) => g.noActiveTask).map((g) => g.name);
     if (idle.length) console.log(`\nGoals with nothing open: ${idle.join(", ")}`);
     const stuck = review.projects.filter((p) => p.noNextAction).map((p) => p.name);

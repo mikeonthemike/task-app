@@ -10,6 +10,7 @@ import { quickParse } from "../src/core/quickParse.js";
 import { proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
 import { loadGoals, resolveGoal, updateProjectMeta } from "../src/core/goals.js";
 import { estimateTags, focusTags, parseDuration, waitingOn, waitingTags } from "../src/core/meta.js";
+import { fixVault } from "../src/core/doctor.js";
 import { buildReview } from "../src/core/review.js";
 import { TaskStore } from "../src/core/store.js";
 import { addDays, todayStr } from "../src/core/task.js";
@@ -195,6 +196,37 @@ describe("review", () => {
     assert.equal(r.inbox[0].stale, true);
     assert.equal(r.estimates.focusMinutes, 60);
     assert.equal(r.daysToHorizon !== null, true);
+  });
+
+  test("flags tasks overdue by scheduled date only, as a report that doctor never touches", () => {
+    const today = todayStr();
+    const store = new TaskStore(config);
+    store.add({ title: "Arbitrary date", area: "Work", scheduled: addDays(today, -2) });
+    store.add({ title: "Long slipped", area: "Work", scheduled: addDays(today, -10) });
+    store.add({ title: "Has a real deadline", area: "Work", scheduled: addDays(today, -2), due: addDays(today, 3) });
+    store.add({ title: "Chase Morgan", area: "Work", scheduled: addDays(today, -4), tags: ["#waiting/morgan"] });
+    store.add({ title: "Legacy wait", area: "Work", scheduled: addDays(today, -4), tags: ["#waiting-on"] });
+    store.add({ title: "Someday idea", scheduled: addDays(today, -4), someday: true });
+    store.add({ title: "Scheduled today", area: "Work", scheduled: today });
+    const done = store.add({ title: "Already done", area: "Work", scheduled: addDays(today, -4) });
+    store.complete(done.id);
+    store.refresh();
+    const before = read("Tasks/Areas/Work.md");
+
+    const r = buildReview(config, store, today);
+    assert.deepEqual(
+      r.scheduledPastNoDue.map((t) => [t.title, t.daysPast, t.stale]),
+      [
+        ["Long slipped", 10, true],
+        ["Arbitrary date", 2, false],
+      ],
+    );
+    // The same tasks really are overdue in Today, which is the disagreement being reported.
+    assert.ok(store.overdue().some((t) => t.title === "Arbitrary date"));
+    assert.deepEqual(r.vaultIssues, []);
+    const { fixed } = fixVault(config);
+    assert.deepEqual(fixed, []);
+    assert.equal(read("Tasks/Areas/Work.md"), before);
   });
 });
 
