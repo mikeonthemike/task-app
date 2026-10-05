@@ -162,7 +162,7 @@ export function Popover() {
       </div>
 
       {error && <div className="toast">{error}</div>}
-      {menu && <TaskMenu target={menu} lists={snap.lists} onClose={() => setMenu(null)} onError={setError} />}
+      {menu && <TaskMenu target={menu} lists={snap.lists} today={snap.date} onClose={() => setMenu(null)} onError={setError} />}
 
       <footer>
         <CaptureInput today={snap.date} />

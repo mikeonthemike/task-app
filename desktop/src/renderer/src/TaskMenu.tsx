@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import type { ListInfo, MoveDest, WidgetTask } from "../../shared/api";
+import type { ListInfo, MoveDest, Priority, TaskPatch, WidgetTask } from "../../shared/api";
+import { addDays, nextWeekday, relativeDate } from "./format";
 
 export interface MenuTarget {
   task: WidgetTask;
@@ -29,23 +30,39 @@ function isCurrent(t: WidgetTask, l: ListInfo): boolean {
   return false;
 }
 
+type DateField = "scheduled" | "due";
+
+/** Same emoji the Tasks plugin writes; normal has none. */
+const PRIORITIES: { value: Priority | null; label: string; mark: string }[] = [
+  { value: "highest", label: "Highest", mark: "🔺" },
+  { value: "high", label: "High", mark: "⏫" },
+  { value: "medium", label: "Medium", mark: "🔼" },
+  { value: null, label: "Normal", mark: "" },
+  { value: "low", label: "Low", mark: "🔽" },
+  { value: "lowest", label: "Lowest", mark: "⏬" },
+];
+
 interface Props {
   target: MenuTarget;
   lists: ListInfo[];
+  today: string;
   onClose: () => void;
   onError: (message: string) => void;
 }
 
-/** Right-click menu for a task. Only "Move" so far: it opens the sections, and clicking one moves. */
-export function TaskMenu({ target, lists, onClose, onError }: Props) {
-  const [step, setStep] = useState<"actions" | "sections">("actions");
+/** Right-click menu for a task: Move, Set date and Set priority, each opening its own list. */
+export function TaskMenu({ target, lists, today, onClose, onError }: Props) {
+  const [step, setStep] = useState<"actions" | "sections" | "date" | "priority">("actions");
   const { task } = target;
+  // Edit the date the task already uses: its due date if it has one, otherwise when it starts.
+  const [field, setField] = useState<DateField>(task.due ? "due" : "scheduled");
+  const [picked, setPicked] = useState("");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      if (step === "sections") setStep("actions");
+      if (step !== "actions") setStep("actions");
       else onClose();
     };
     window.addEventListener("keydown", onKey, true);
@@ -57,6 +74,23 @@ export function TaskMenu({ target, lists, onClose, onError }: Props) {
     const r = await window.taskApp.move(task.id, dest);
     if (!r.ok) onError(r.error ?? "Couldn't move that task.");
   }
+
+  async function edit(patch: TaskPatch) {
+    onClose();
+    const r = await window.taskApp.edit(task.id, patch);
+    if (!r.ok) onError(r.error ?? "Couldn't update that task.");
+  }
+
+  const current = task[field];
+  const other = field === "due" ? task.scheduled : task.due;
+  // A repeating task counts from its date, so it can't lose its last one.
+  const canClear = !!current && !(task.recurrence && !other);
+  const dateChoices = [
+    { label: "Today", date: today, hint: false },
+    { label: "Tomorrow", date: addDays(today, 1), hint: false },
+    { label: "This weekend", date: nextWeekday(addDays(today, -1), 6), hint: true },
+    { label: "Next week", date: nextWeekday(today, 1), hint: true },
+  ];
 
   const sections = lists.flatMap((l) => {
     const dest = destOf(l);
@@ -83,12 +117,80 @@ export function TaskMenu({ target, lists, onClose, onError }: Props) {
         }}
       />
       <div className="menu" role="menu" style={{ left, top, width: MENU_W, maxHeight }}>
-        {step === "actions" ? (
-          <button role="menuitem" onClick={() => setStep("sections")}>
-            <span>Move</span>
-            <span aria-hidden="true">›</span>
-          </button>
-        ) : (
+        {step === "actions" && (
+          <>
+            <button role="menuitem" onClick={() => setStep("sections")}>
+              <span>Move</span>
+              <span aria-hidden="true">›</span>
+            </button>
+            <button role="menuitem" onClick={() => setStep("date")}>
+              <span>Set date</span>
+              <span aria-hidden="true">›</span>
+            </button>
+            <button role="menuitem" onClick={() => setStep("priority")}>
+              <span>Set priority</span>
+              <span aria-hidden="true">›</span>
+            </button>
+          </>
+        )}
+        {step === "date" && (
+          <>
+            <div className="menu-segments" role="group" aria-label="Which date">
+              {(["scheduled", "due"] as const).map((f) => (
+                <button key={f} aria-pressed={field === f} className={field === f ? "on" : undefined} onClick={() => setField(f)}>
+                  {f === "scheduled" ? "When" : "Due"}
+                </button>
+              ))}
+            </div>
+            {current && <div className="menu-title">{`${field === "due" ? "Due" : "Starts"} ${relativeDate(current, today)}`}</div>}
+            {dateChoices.map(({ label, date, hint }) => (
+              <button key={label} role="menuitem" disabled={date === current} onClick={() => edit({ [field]: date })}>
+                <span>{label}</span>
+                <span className="menu-hint">{date === current ? "✓" : hint ? relativeDate(date, today) : ""}</span>
+              </button>
+            ))}
+            <form
+              className="menu-date"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (picked) edit({ [field]: picked });
+              }}
+            >
+              <input type="date" aria-label="Pick a date" value={picked || current || ""} onChange={(e) => setPicked(e.target.value)} />
+              <button type="submit" disabled={!picked || picked === current}>
+                Set
+              </button>
+            </form>
+            <button
+              role="menuitem"
+              disabled={!canClear}
+              title={current && !canClear ? "A repeating task needs a date to count from." : undefined}
+              onClick={() => edit({ [field]: null })}
+            >
+              <span>{field === "due" ? "No due date" : "No start date"}</span>
+            </button>
+          </>
+        )}
+        {step === "priority" && (
+          <>
+            <div className="menu-title">Priority (importance)</div>
+            {PRIORITIES.map(({ value, label, mark }) => {
+              const here = (task.priority ?? null) === value;
+              return (
+                <button key={label} role="menuitem" disabled={here} onClick={() => edit({ priority: value })}>
+                  <span>
+                    <span className="menu-mark" aria-hidden="true">
+                      {mark}
+                    </span>
+                    {label}
+                  </span>
+                  {here && <span aria-hidden="true">✓</span>}
+                </button>
+              );
+            })}
+          </>
+        )}
+        {step === "sections" && (
           <>
             <div className="menu-title">Move to…</div>
             {groups.map(

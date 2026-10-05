@@ -588,3 +588,61 @@ body[data-view="pill"] {
   font-size: 11px;
   font-weight: 600;
 }
+
+.menu-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.menu button:hover:not(:disabled) .menu-hint {
+  color: inherit;
+}
+
+.menu-mark {
+  display: inline-block;
+  width: 20px;
+}
+
+/* When / Due toggle at the top of Set date. */
+.menu-segments {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 4px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--hover);
+}
+
+.menu .menu-segments button {
+  justify-content: center;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.menu .menu-segments button.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.menu-date {
+  display: flex;
+  gap: 4px;
+  padding: 3px 4px 3px 8px;
+}
+
+.menu-date input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--faint);
+  border-radius: 5px;
+  padding: 2px 4px;
+}
+
+.menu .menu-date button {
+  width: auto;
+  padding: 2px 8px;
+}

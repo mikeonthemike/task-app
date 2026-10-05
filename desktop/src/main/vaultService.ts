@@ -6,11 +6,29 @@ import { taskJson } from "../../../src/core/json.js";
 import { quickParse } from "../../../src/core/quickParse.js";
 import { TaskStore } from "../../../src/core/store.js";
 import { type Task, todayStr } from "../../../src/core/task.js";
-import type { CapturePreview, ListId, MoveDest, ListInfo, Result, Snapshot, WidgetTask } from "../shared/api.js";
+import type { CapturePreview, ListId, MoveDest, ListInfo, Result, Snapshot, TaskPatch, WidgetTask } from "../shared/api.js";
 
 const RESCAN_DEBOUNCE_MS = 300;
 const DAILY_NOTE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
 const LOGBOOK_LIMIT = 100;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const PRIORITIES = new Set(["highest", "high", "medium", "low", "lowest"]);
+
+/** Only the fields the widget may change, each checked, so a bad value never reaches the vault. */
+function cleanPatch(patch: TaskPatch): TaskPatch {
+  const out: TaskPatch = {};
+  for (const key of ["scheduled", "due"] as const) {
+    const v = patch[key];
+    if (v === undefined) continue;
+    if (v !== null && !DATE_RE.test(v)) throw new Error(`"${v}" isn't a date.`);
+    out[key] = v;
+  }
+  if (patch.priority !== undefined) {
+    if (patch.priority !== null && !PRIORITIES.has(patch.priority)) throw new Error(`"${patch.priority}" isn't a priority.`);
+    out.priority = patch.priority;
+  }
+  return out;
+}
 
 /** Every open task outside Someday: Inbox first, then projects, then areas, each A–Z. */
 function allOpen(store: TaskStore): Task[] {
@@ -239,6 +257,19 @@ export class VaultService {
   move(id: string, dest: MoveDest): Result {
     return this.mutate(id, (store, realId) => {
       if (!store.move(realId, dest)) throw new Error("That task is gone. It may have been edited elsewhere.");
+    });
+  }
+
+  /** Dates and priority, changed in place; the task stays in its file. */
+  edit(id: string, patch: TaskPatch): Result {
+    return this.mutate(id, (store, realId) => {
+      const fields = cleanPatch(patch);
+      const t = store.byId(realId);
+      if (!t) throw new Error("That task is gone. It may have been edited elsewhere.");
+      const due = fields.due === undefined ? t.due : fields.due;
+      const scheduled = fields.scheduled === undefined ? t.scheduled : fields.scheduled;
+      if (t.recurrence && !due && !scheduled) throw new Error("A repeating task needs a date to count from.");
+      store.edit(realId, fields);
     });
   }
 

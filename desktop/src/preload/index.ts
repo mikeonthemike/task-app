@@ -13,6 +13,7 @@ const api: TaskAppApi = {
   complete: (id) => ipcRenderer.invoke("task:complete", id),
   uncomplete: (id) => ipcRenderer.invoke("task:uncomplete", id),
   move: (id, dest) => ipcRenderer.invoke("task:move", id, dest),
+  edit: (id, patch) => ipcRenderer.invoke("task:edit", id, patch),
   capture: (text) => ipcRenderer.invoke("capture:add", text),
   previewCapture: (text) => ipcRenderer.invoke("capture:preview", text),
   openTask: (id) => ipcRenderer.invoke("open:task", id),

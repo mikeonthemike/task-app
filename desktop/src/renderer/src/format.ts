@@ -38,3 +38,19 @@ export function metaParts(t: WidgetTask, today: string, hideWhere = false): { te
   else if (t.scheduled && t.scheduled > today) parts.push({ text: relativeDate(t.scheduled, today) });
   return parts;
 }
+
+function iso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function addDays(date: string, n: number): string {
+  const d = parse(date);
+  d.setDate(d.getDate() + n);
+  return iso(d);
+}
+
+/** The next given weekday after `date` (0 = Sunday), never `date` itself. */
+export function nextWeekday(date: string, weekday: number): string {
+  const diff = (weekday - parse(date).getDay() + 7) % 7 || 7;
+  return addDays(date, diff);
+}

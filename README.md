@@ -213,7 +213,8 @@ Each task shows its id in brackets, e.g. `[cc7xg7sv]`. That's the id `complete`,
 
 - **Popover** (click the ☑ icon): today's top 3, the `## Plan` from your daily note, follow-ups
   due, the rest of Today and what you've done today. Tick a task to complete it, or click its
-  title to open it in Obsidian. The "Today ▾" title switches lists (the TUI's lists plus
+  title to open it in Obsidian. Right-click a task to move it, set its date (when or due) or set
+  its priority. The "Today ▾" title switches lists (the TUI's lists plus
   **All open**), ←/→ steps through them and Esc returns to Today.
 - **Quick capture** (⌃⌥Space from anywhere): one line into the Inbox. Dates ("fri") and repeats
   ("every monday", "every 2 weeks", "every month from 1 Nov") and "end of …" phrases ("by end of
