@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config.js";
 import { checkVault } from "./doctor.js";
 import { taskJson } from "./json.js";
-import { estimateMinutes } from "./meta.js";
+import { estimateMinutes, waitingOn } from "./meta.js";
 import type { TaskStore } from "./store.js";
 import type { Task } from "./task.js";
 import { addDays, daysBetween, todayStr } from "./task.js";
@@ -9,7 +9,26 @@ import { addDays, daysBetween, todayStr } from "./task.js";
 export const INBOX_STALE_DAYS = 3;
 export const TASK_STALE_DAYS = 21;
 export const DUE_SOON_DAYS = 7;
+export const SCHEDULED_STALE_DAYS = 7;
 const RECENT_DAYS = 7;
+
+/**
+ * Open tasks whose urgency signals disagree: the ⏳ scheduled date has passed, so Today and
+ * `overdue` count them as late, but there's no 📅 due date, so the Eisenhower matrix (and its
+ * vault query note) calls them not urgent. That split is deliberate; these usually mean a date was
+ * set arbitrarily and then overtaken, so the fix is a human decision (real due date, new scheduled
+ * date, or no date), never an automatic one. Waiting-on items are left out because their ⏳ is the
+ * follow-up date, and so is Someday. Oldest first; `stale` once SCHEDULED_STALE_DAYS have passed.
+ */
+export function scheduledPastNoDue(tasks: Task[], today: string): { task: Task; daysPast: number; stale: boolean }[] {
+  return tasks
+    .filter((t) => !t.done && !t.someday && waitingOn(t) === null && !t.due && t.scheduled && t.scheduled < today)
+    .sort((a, b) => a.scheduled!.localeCompare(b.scheduled!))
+    .map((task) => {
+      const daysPast = daysBetween(task.scheduled!, today);
+      return { task, daysPast, stale: daysPast >= SCHEDULED_STALE_DAYS };
+    });
+}
 
 /**
  * Everything the morning plan, shutdown and weekly review need to reason about, in one
@@ -89,6 +108,8 @@ export function buildReview(config: AppConfig, store: TaskStore, today = todaySt
     stale: open
       .filter((t) => !t.someday && !t.scheduled && !t.due && (age(t) ?? 0) >= TASK_STALE_DAYS)
       .map((t) => ({ ...json(t), ageDays: age(t) })),
+    /** Overdue by ⏳ only (no 📅), so not urgent in the matrix: ask whether each needs a real date. */
+    scheduledPastNoDue: scheduledPastNoDue(open, today).map(({ task, ...rest }) => ({ ...json(task), ...rest })),
     estimates: {
       focusMinutes: minutes(focus),
       todayMinutes: minutes(todayTasks),

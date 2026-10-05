@@ -33,9 +33,18 @@ Calendar: next week's events (Mon–Fri), to judge next week's capacity.
    notes where possible, clearly marked as a suggestion.
 5. **Projects**: flag `noNextAction`.
 6. **Stale**: open 21+ days with no date. Propose schedule, Someday, or drop.
-7. **The week in numbers**: planned focus tasks (from each day's Plan) vs. completed; tasks
+7. **Dates that disagree**: `scheduledPastNoDue`, tasks past their ⏳ scheduled date with no 📅
+   due date. They count as overdue in Today but as not urgent in the matrix, which usually means
+   the date was arbitrary. For each one (oldest first, and mark the `stale` ones, past by 7+
+   days), propose one of these:
+   - a real due date (`edit <id> --due D`), when there's an actual deadline;
+   - a new scheduled date (`edit <id> --scheduled D`), when it's just "start it then";
+   - no date (`edit <id> --scheduled none`), which leaves it in Anytime, or Someday (`move <id> --someday`);
+   - `skip <id>` for a recurring task whose occurrence isn't happening.
+   Don't pick for the user, and don't change anything until they say yes.
+8. **The week in numbers**: planned focus tasks (from each day's Plan) vs. completed; tasks
    done per goal; roughly how many hours of meetings the calendar showed.
-8. **Next week**: a first-pass top 3 for Monday, plus anything with a deadline next week.
+9. **Next week**: a first-pass top 3 for Monday, plus anything with a deadline next week.
 
 ## 3. Write
 

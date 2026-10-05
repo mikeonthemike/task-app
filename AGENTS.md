@@ -102,7 +102,9 @@ survives Obsidian edits:
 `review --json` is the main input for planning and reviews. It holds focus, today, overdue,
 due-within-7-days, Inbox (with age/`stale`), waiting (`followUpDue` / `noFollowUpDate` /
 `later`), per-goal and per-project health (`noActiveTask`, `noNextAction`), `unlinked` and
-`stale` open tasks, estimate totals, the last 7 days' completions, and any `doctor` issues.
+`stale` open tasks, `scheduledPastNoDue` (past ⏳ with no 📅: overdue in Today but not urgent in
+the Eisenhower matrix, so ask the user for a real date rather than re-dating them), estimate totals,
+the last 7 days' completions, and any `doctor` issues.
 
 ## The daily note is the master record
 
