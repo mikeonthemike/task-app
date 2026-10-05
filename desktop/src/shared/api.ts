@@ -9,6 +9,8 @@ export interface WidgetTask {
   priority: string | null;
   estimateMinutes: number | null;
   waitingOn: string | null;
+  /** The 🔁 rule, e.g. "every monday". */
+  recurrence: string | null;
   focus: boolean;
   overdue: boolean;
   done: boolean;
@@ -74,6 +76,7 @@ export interface MoveDest {
 export interface CapturePreview {
   title: string;
   scheduled: string | null;
+  recurrence: string | null;
 }
 
 export interface TaskAppApi {

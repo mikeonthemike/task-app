@@ -395,6 +395,11 @@ details[open] > summary::before {
   color: var(--urgent);
 }
 
+.repeat {
+  font-size: 10px;
+  cursor: default;
+}
+
 /* ---- Footer and capture ---- */
 
 .popover footer {

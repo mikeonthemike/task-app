@@ -292,6 +292,39 @@ describe("quickParse fallback", () => {
     assert.deepEqual(quickParse("Dry runs (12 Oct) for CRM", monday), { title: "Dry runs for CRM", scheduled: "2026-10-12" });
     assert.deepEqual(quickParse("No date here", monday), { title: "No date here" });
   });
+
+  test("a repeat phrase becomes the recurrence, starting on the next matching day", () => {
+    // Today matches: starts today, and "monday" isn't read as a one-off date.
+    assert.deepEqual(quickParse("MOT status update every monday", monday), {
+      title: "MOT status update",
+      recurrence: "every monday",
+      scheduled: "2026-09-28",
+    });
+    assert.deepEqual(quickParse("Every Fri timesheet", monday), { title: "timesheet", recurrence: "every friday", scheduled: "2026-10-02" });
+    assert.equal(quickParse("Water plants every weekday", new Date(2026, 9, 3)).scheduled, "2026-10-05");
+    assert.deepEqual(quickParse("Pay rent every month", monday), { title: "Pay rent", recurrence: "every month", scheduled: "2026-09-28" });
+    assert.equal(quickParse("1:1 prep every other week", monday).recurrence, "every 2 weeks");
+    assert.equal(quickParse("Backup every 3 days", monday).recurrence, "every 3 days");
+    assert.equal(quickParse("Haircut every 6 weeks when done", monday).recurrence, "every 6 weeks when done");
+  });
+
+  test("an explicit date sets the first occurrence of a repeat", () => {
+    assert.deepEqual(quickParse("MOT status update every monday from 12 Oct", monday), {
+      title: "MOT status update",
+      recurrence: "every monday",
+      scheduled: "2026-10-12",
+    });
+    assert.deepEqual(quickParse("Board pack every month starting 5 Oct", monday), {
+      title: "Board pack",
+      recurrence: "every month",
+      scheduled: "2026-10-05",
+    });
+  });
+
+  test("'every' without a rule is just part of the title", () => {
+    assert.deepEqual(quickParse("Read every chapter", monday), { title: "Read every chapter" });
+    assert.deepEqual(quickParse("Check every page friday", monday), { title: "Check every page", scheduled: "2026-10-02" });
+  });
 });
 
 describe("proposed top 3", () => {

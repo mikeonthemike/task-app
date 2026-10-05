@@ -46,9 +46,16 @@ export function CaptureInput({ today, standalone }: Props) {
   const hint = status
     ? status.message
     : preview
-      ? `Inbox · “${preview.title}”${preview.scheduled ? ` · ${relativeDate(preview.scheduled, today)}` : ""}`
+      ? [
+          "Inbox",
+          `“${preview.title}”`,
+          preview.recurrence && `🔁 ${preview.recurrence}`,
+          preview.scheduled && relativeDate(preview.scheduled, today),
+        ]
+          .filter(Boolean)
+          .join(" · ")
       : standalone
-        ? "Goes to your Inbox. Dates like “tomorrow” or “fri” are picked up."
+        ? "Goes to your Inbox. Dates like “tomorrow” or “fri”, and repeats like “every monday”, are picked up."
         : "";
 
   return (

@@ -29,6 +29,7 @@ export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
   }
 
   const meta = compact ? [] : metaParts(task, today, hideWhere);
+  const repeats = !compact && !!task.recurrence;
   return (
     <li
       className={`row${checked ? " done" : ""}`}
@@ -52,8 +53,14 @@ export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
         <button className="title" title="Open in Obsidian" onClick={() => window.taskApp.openTask(task.id)}>
           {task.title}
         </button>
-        {meta.length > 0 && (
+
+        {(meta.length > 0 || repeats) && (
           <div className="meta">
+            {repeats && (
+              <span className="repeat" title={`Repeats ${task.recurrence}`} aria-label={`Repeats ${task.recurrence}`}>
+                🔁
+              </span>
+            )}
             {meta.map((m, i) => (
               <span key={i} className={m.urgent ? "urgent" : undefined}>
                 {m.text}

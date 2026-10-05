@@ -208,6 +208,7 @@ export class VaultService {
       priority: j.priority,
       estimateMinutes: j.estimateMinutes,
       waitingOn: j.waitingOn,
+      recurrence: j.recurrence,
       focus: j.focus,
       overdue: !!((j.due && j.due < today) || (j.scheduled && j.scheduled < today)),
       done: j.done,
@@ -242,8 +243,8 @@ export class VaultService {
   }
 
   previewCapture(text: string): CapturePreview {
-    const { title, scheduled } = quickParse(text);
-    return { title, scheduled: scheduled ?? null };
+    const { title, scheduled, recurrence } = quickParse(text);
+    return { title, scheduled: scheduled ?? null, recurrence: recurrence ?? null };
   }
 
   /** Quick capture always lands in the Inbox; Claude or the user files it later. */
