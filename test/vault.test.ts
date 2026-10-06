@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
 import { checkVault, cleanTitle, fixVault } from "../src/core/doctor.js";
 import { TaskStore } from "../src/core/store.js";
-import { scanVault, serializeTaskLine, updateTask } from "../src/core/vault.js";
+import { fieldsInTitle, scanVault, serializeTaskLine, stripTitleFields, updateTask } from "../src/core/vault.js";
 
 let config: AppConfig;
 const root = () => join(config.vaultPath, config.tasksDir);
@@ -51,6 +51,74 @@ describe("parsing and serializing", () => {
     assert.equal(read("Inbox.md"), "# Inbox\n\n- [ ] Buy mi\n");
     const [persisted] = scanVault(config);
     assert.equal(persisted.idPending, undefined);
+  });
+});
+
+describe("emoji fields are read from the end of the line", () => {
+  test("a stray field in the title stays in the title and doesn't override the real one", () => {
+    write(
+      "Areas/Work.md",
+      "# Work\n\n- [ ] Pre-mortem (15:00) ➕ 2026-10-12 📅 2026-11-01 #est/45m ⏫ ⏳ 2026-10-12 ➕ 2026-10-05 🆔 w1\n",
+    );
+    const [t] = scanVault(config);
+    assert.equal(t.title, "Pre-mortem (15:00) ➕ 2026-10-12");
+    assert.equal(t.created, "2026-10-05");
+    assert.equal(t.due, "2026-11-01", "tags between fields are still part of the trailing run");
+    assert.equal(t.scheduled, "2026-10-12");
+    assert.equal(t.priority, "high");
+    assert.deepEqual(t.tags, ["#est/45m"]);
+    assert.equal(t.id, "w1");
+  });
+
+  test("rewriting the line keeps the real created date", () => {
+    write("Areas/Work.md", "# Work\n\n- [ ] Pre-mortem ➕ 2026-10-12 #est/45m ⏳ 2026-10-12 ➕ 2026-10-05 🆔 w1\n");
+    const [t] = scanVault(config);
+    updateTask({ ...t, title: stripTitleFields(t.title) });
+    assert.equal(taskLines("Areas/Work.md")[0], "- [ ] Pre-mortem #est/45m ⏳ 2026-10-12 ➕ 2026-10-05 🆔 w1");
+  });
+
+  test("text after a field makes it part of the title, as in the Tasks plugin", () => {
+    write("Inbox.md", "# Inbox\n\n- [ ] Call Bob 📅 2026-10-10 about the ⏳ 2026-10-09 sync 🆔 b1\n");
+    const [t] = scanVault(config);
+    assert.equal(t.title, "Call Bob 📅 2026-10-10 about the ⏳ 2026-10-09 sync");
+    assert.equal(t.due, null);
+    assert.equal(t.scheduled, null);
+  });
+
+  test("a field written twice in the trailing run is left in the title rather than one copy winning", () => {
+    write("Inbox.md", "# Inbox\n\n- [ ] Pay rent ➕ 2026-10-01 📅 2026-10-31 ➕ 2026-10-05 🆔 r1\n");
+    const [t] = scanVault(config);
+    assert.equal(t.created, "2026-10-05");
+    assert.equal(t.due, "2026-10-31");
+    assert.equal(t.title, "Pay rent ➕ 2026-10-01");
+  });
+
+  test("tags, priority and a block link mixed into the trailing run all parse", () => {
+    write("Inbox.md", "# Inbox\n\n- [ ] Ship #work 🔼 📅 2026-10-31 #urgent 🆔 s1 ^ship\n");
+    const [t] = scanVault(config);
+    assert.equal(t.title, "Ship ^ship");
+    assert.equal(t.priority, "medium");
+    assert.equal(t.due, "2026-10-31");
+    assert.deepEqual(t.tags, ["#work", "#urgent"]);
+    assert.equal(t.id, "s1");
+  });
+
+  test("a 🆔 inside the title isn't taken as the id, so a real one is assigned and persisted", () => {
+    write("Inbox.md", "# Inbox\n\n- [ ] Look up 🆔 xyz in the docs\n");
+    const [first] = scanVault(config);
+    assert.notEqual(first.id, "xyz");
+    assert.equal(first.title, "Look up 🆔 xyz in the docs");
+    assert.equal(scanVault(config)[0].id, first.id);
+    const updated = { ...first, title: "Look up xyz in the docs" };
+    updateTask(updated);
+    assert.equal(taskLines("Inbox.md")[0], `- [ ] Look up xyz in the docs 🆔 ${first.id}`);
+  });
+
+  test("fieldsInTitle finds dates, ids and recurrences but not bare emoji", () => {
+    assert.deepEqual(fieldsInTitle("Call (15:00) ➕ 2026-10-12 and 🔁 every week #x"), ["➕ 2026-10-12", "🔁 every week"]);
+    assert.deepEqual(fieldsInTitle("Pack ⏳ boxes, 📅 soon"), []);
+    assert.deepEqual(fieldsInTitle("Done ✅2026-10-01 🆔 abc"), ["✅2026-10-01", "🆔 abc"]);
+    assert.equal(stripTitleFields("Call (15:00) ➕ 2026-10-12 now"), "Call (15:00) now");
   });
 });
 
@@ -183,6 +251,15 @@ describe("doctor", () => {
   test("a second --fix is a no-op", () => {
     write("Areas/Work.md", "# Work\n\n- [x] Review paper ➕ 2026-09-22 🆔 a1\n");
     fixVault(config);
+    const snapshot = read("Areas/Work.md");
+    assert.deepEqual(fixVault(config).fixed, []);
+    assert.equal(read("Areas/Work.md"), snapshot);
+  });
+
+  test("flags emoji fields in a title without offering an automatic fix", () => {
+    write("Areas/Work.md", "# Work\n\n- [ ] Pre-mortem ➕ 2026-10-12 ⏳ 2026-10-12 ➕ 2026-10-05 🆔 w1\n");
+    const issues = checkVault(config);
+    assert.deepEqual(issues.map((i) => [i.kind, i.id, i.fix]), [["title-field", "w1", undefined]]);
     const snapshot = read("Areas/Work.md");
     assert.deepEqual(fixVault(config).fixed, []);
     assert.equal(read("Areas/Work.md"), snapshot);

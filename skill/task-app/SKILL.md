@@ -145,8 +145,8 @@ dates, project/area, goal, priority (normal unless it's clearly important or cle
 optional; see "The model"), waiting-on and estimate yourself, and call `task-app add` with
 explicit flags. The CLI only guesses a date from the title when `add` gets no flags at all, so
 any flag keeps the title verbatim. For a bare Inbox item with no other flags, pass `--literal`.
-`add`/`edit` reject titles containing `[area:…]` or a task-app `--flag`; that
-means a flag got quoted into the title, so fix the command.
+`add`/`edit` reject titles containing `[area:…]`, a task-app `--flag` or a Tasks emoji field
+(`➕ 2026-10-12`); that means a flag or date got quoted into the title, so fix the command.
 
 ## Pulling in Gmail / Calendar / Slack
 

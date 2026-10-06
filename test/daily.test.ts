@@ -308,6 +308,42 @@ describe("CLI end to end", () => {
   test("unknown goal is rejected with the valid names", () => {
     assert.throws(() => cli(["add", "X", "--goal", "Nope"]), /Unknown goal "Nope"/);
   });
+
+  test("a stray created date in the title doesn't replace the real one, and doctor flags it", () => {
+    const rel = "Tasks/Areas/Work.md";
+    write(
+      rel,
+      "# Work\n\n- [ ] Prepare the pre-mortem (15:00) ➕ 2026-10-12 #est/45m ⏫ ⏳ 2026-10-12 ➕ 2026-10-05 🆔 wCp05vWi\n",
+    );
+    const [before] = JSON.parse(cli(["list", "all", "--json"]));
+    assert.equal(before.title, "Prepare the pre-mortem (15:00) ➕ 2026-10-12");
+    assert.equal(before.created, "2026-10-05");
+
+    const [issue] = JSON.parse(cli(["doctor", "--json"]));
+    assert.equal(issue.kind, "title-field");
+    assert.equal(issue.id, "wCp05vWi");
+    assert.match(issue.message, /"➕ 2026-10-12"/);
+    assert.match(issue.message, /--title "Prepare the pre-mortem \(15:00\)"/);
+
+    cli(["edit", "wCp05vWi", "--title", "Prepare the pre-mortem (15:00)"]);
+    const line = readFileSync(join(config.vaultPath, rel), "utf8").split("\n").find((l) => l.startsWith("- ["));
+    assert.equal(line, "- [ ] Prepare the pre-mortem (15:00) #est/45m ⏫ ⏳ 2026-10-12 ➕ 2026-10-05 🆔 wCp05vWi");
+    assert.deepEqual(JSON.parse(cli(["doctor", "--json"])), []);
+  });
+
+  test("add and edit reject titles containing an emoji field", () => {
+    assert.throws(() => cli(["add", "Call Sam ➕ 2026-10-12", "--area", "Work"]), /contains a Tasks field \(➕ 2026-10-12\)/);
+    assert.throws(() => cli(["add", "Call Sam 📅 2026-10-12 tomorrow", "--literal"]), /Did you mean "Call Sam tomorrow"/);
+    assert.throws(() => cli(["add", "Report 🔁 every week", "--area", "Work"]), /🔁 every week/);
+    cli(["add", "Call Sam", "--area", "Work"]);
+    const [t] = JSON.parse(cli(["list", "all", "--json"]));
+    assert.throws(() => cli(["edit", t.id, "--title", "Call Sam 🆔 abc123"]), /contains a Tasks field/);
+    assert.throws(() => cli(["edit", t.id, "--title", "Call Sam ⏳ 2026-10-12"]), /contains a Tasks field/);
+    assert.equal(JSON.parse(cli(["list", "all", "--json"]))[0].title, "Call Sam");
+    // An emoji with no value after it is just part of the title.
+    cli(["edit", t.id, "--title", "Call Sam 📅 soon"]);
+    assert.equal(JSON.parse(cli(["list", "all", "--json"]))[0].title, "Call Sam 📅 soon");
+  });
 });
 
 describe("quickParse fallback", () => {

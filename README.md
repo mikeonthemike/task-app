@@ -30,8 +30,10 @@ line, so that's the CLI's job.
 
 **Only the CLI writes task lines.** Emoji-field syntax is easy to get subtly wrong, and a
 hand edit in the wrong file silently changes a task's project. Agents are told never to edit
-task lines by hand. `add`/`edit` reject titles that contain CLI flags or CLI output, and
-`task-app doctor` finds duplicate ids, missing done dates and misfiled items.
+task lines by hand. `add`/`edit` reject titles that contain CLI flags, CLI output or a Tasks
+emoji field (`➕ 2026-10-12`), and `task-app doctor` finds duplicate ids, missing done dates,
+emoji fields stuck inside titles and misfiled items. Like the Tasks plugin, task-app reads emoji
+fields only from the run at the end of the line, so a stray one in the title can't override them.
 
 **Stable ids, assigned lazily.** Each task carries a short `🆔` id, which the Tasks plugin also
 uses for dependencies. If you type a task straight into Obsidian, task-app gives it an id the

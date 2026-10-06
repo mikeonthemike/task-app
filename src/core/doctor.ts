@@ -3,9 +3,18 @@ import { nanoid } from "nanoid";
 import type { AppConfig } from "../config.js";
 import type { Task } from "./task.js";
 import { todayStr } from "./task.js";
-import { deleteTaskLine, listAreaFiles, listProjectFiles, moveTask, scanVault, updateTask } from "./vault.js";
+import {
+  deleteTaskLine,
+  fieldsInTitle,
+  listAreaFiles,
+  listProjectFiles,
+  moveTask,
+  scanVault,
+  stripTitleFields,
+  updateTask,
+} from "./vault.js";
 
-export type IssueKind = "duplicate-id" | "missing-done-date" | "title-junk" | "misfiled-inbox";
+export type IssueKind = "duplicate-id" | "missing-done-date" | "title-junk" | "title-field" | "misfiled-inbox";
 
 export interface Issue {
   kind: IssueKind;
@@ -116,6 +125,18 @@ function diagnose(config: AppConfig): Diagnosis[] {
         message: `Title "${t.title}" contains CLI output or a stray flag.`,
         fix: `Rename to "${cleaned}".`,
         apply: () => updateTask({ ...t, title: cleaned }),
+      });
+    }
+
+    // --- a Tasks emoji field inside the title, where neither Obsidian nor task-app reads it as
+    // a field. Which value is real (the stray one or the trailing field) is the user's call.
+    const stray = fieldsInTitle(t.title);
+    if (stray.length) {
+      out.push({
+        kind: "title-field",
+        id: t.id,
+        file: rel(t),
+        message: `Title "${t.title}" contains ${stray.map((f) => `"${f}"`).join(", ")}, which is not read as a field. Check the real value, then: task-app edit ${t.id} --title "${stripTitleFields(t.title)}"`,
       });
     }
 
