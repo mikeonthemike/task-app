@@ -15,7 +15,7 @@
     "start": "node dist/cli.js",
     "typecheck": "tsc --noEmit",
     "widget": "npm --prefix desktop start",
-    "widget:install": "npm --prefix desktop run install-app && open ~/Applications/task-app.app",
+    "widget:install": "npm --prefix desktop run install-app -- --open",
     "test": "node --import tsx --test test/*.test.ts",
     "skill:pack": "cd skill && rm -f ../task-app-skill.zip && zip -qr ../task-app-skill.zip task-app && echo 'Wrote task-app-skill.zip \u2014 upload it in Claude: Settings \u2192 Capabilities \u2192 Skills'"
   },
