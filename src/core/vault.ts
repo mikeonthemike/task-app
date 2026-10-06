@@ -26,11 +26,70 @@ const DATE_FIELD_EMOJI = {
   done: "✅",
 } as const;
 
-const DATE_RE = /(\d{4}-\d{2}-\d{2})/;
 const TAG_RE = /#[A-Za-z0-9_/-]+/g;
-const ID_RE = /🆔\s*(\S+)/;
-const RECURRENCE_RE = /🔁\s*([^➕🛫⏳📅✅🔺⏫🔼🔽⏬🆔#]+)/;
 const CHECKBOX_RE = /^(\s*)-\s\[([ xX])\]\s+(.*)$/;
+
+type FieldKind = keyof typeof DATE_FIELD_EMOJI | "id" | "recurrence" | "priority";
+
+/**
+ * One field at the very end of a line. Like the Tasks plugin, parseLine peels these off
+ * the end one at a time, so an emoji field that sits inside the description (with plain
+ * text after it) stays part of the title rather than overriding the real one.
+ */
+const TRAILING_FIELD_RES: [FieldKind, RegExp][] = [
+  ...Object.entries(DATE_FIELD_EMOJI).map(
+    ([field, emoji]) => [field as FieldKind, new RegExp(`${emoji}\\uFE0F?\\s*(\\d{4}-\\d{2}-\\d{2})$`, "u")] as [FieldKind, RegExp],
+  ),
+  ["id", /🆔\uFE0F?\s*(\S+)$/u],
+  ["recurrence", /🔁\uFE0F?\s*([^➕🛫⏳📅✅🔁🔺⏫🔼🔽⏬🆔#]+)$/u],
+  ["priority", /([🔺⏫🔼🔽⏬])\uFE0F?$/u],
+];
+const TRAILING_TAG_RE = /(?:^|\s)(#[A-Za-z0-9_/-]+)$/;
+const TRAILING_BLOCK_LINK_RE = /\s+(\^[A-Za-z0-9-]+)$/;
+
+/** A Tasks emoji field (date, recurrence or id) inside a title, where Obsidian won't read it as one. */
+const TITLE_FIELD_RE =
+  /[➕🛫⏳📅✅]\uFE0F?\s*\d{4}-\d{2}-\d{2}|🆔\uFE0F?\s*\S+|🔁\uFE0F?\s*[^\s➕🛫⏳📅✅🔁🆔#]+(?:\s+[^\s➕🛫⏳📅✅🔁🆔#]+)*/gu;
+
+/** The Tasks emoji fields written inside a title (`➕ 2026-10-12`), in order. */
+export function fieldsInTitle(title: string): string[] {
+  return title.match(TITLE_FIELD_RE) ?? [];
+}
+
+/** The title with any emoji fields removed. */
+export function stripTitleFields(title: string): string {
+  return title.replace(TITLE_FIELD_RE, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/**
+ * Splits a line's text into its description and the fields trailing it. Stops at the first
+ * field kind it sees twice, so a duplicate stays visible in the title for `doctor` instead of
+ * one copy silently winning.
+ */
+function splitTrailingFields(text: string): { description: string; fields: Partial<Record<FieldKind, string>> } {
+  const fields: Partial<Record<FieldKind, string>> = {};
+  let rest = text.trimEnd();
+  const blockLink = TRAILING_BLOCK_LINK_RE.exec(rest);
+  if (blockLink) rest = rest.slice(0, blockLink.index).trimEnd();
+
+  peel: while (rest.length) {
+    const tag = TRAILING_TAG_RE.exec(rest);
+    if (tag) {
+      rest = rest.slice(0, tag.index).trimEnd();
+      continue;
+    }
+    for (const [kind, re] of TRAILING_FIELD_RES) {
+      const m = re.exec(rest);
+      if (!m) continue;
+      if (kind in fields) break peel;
+      fields[kind] = m[1].trim();
+      rest = rest.slice(0, m.index).trimEnd();
+      continue peel;
+    }
+    break;
+  }
+  return { description: blockLink ? `${rest} ${blockLink[1]}` : rest, fields };
+}
 
 function slugToTitle(slug: string): string {
   return slug
@@ -138,53 +197,28 @@ function parseLine(
   const [, , checkMark, rest] = m;
   const done = checkMark.toLowerCase() === "x";
 
+  // Tags count wherever they are on the line; emoji fields only in the trailing run.
   const tags: string[] = rest.match(TAG_RE) ?? [];
-  const idMatch = ID_RE.exec(rest);
-  const recurMatch = RECURRENCE_RE.exec(rest);
-  const priorityEmoji = Object.keys(EMOJI_TO_PRIORITY).find((e) => rest.includes(e));
+  const { description, fields } = splitTrailingFields(rest);
 
-  const dates: Record<string, string | null> = {
-    created: null,
-    start: null,
-    scheduled: null,
-    due: null,
-    done: null,
-  };
-  let title = rest;
-
-  for (const [field, emoji] of Object.entries(DATE_FIELD_EMOJI)) {
-    const idx = title.indexOf(emoji);
-    if (idx !== -1) {
-      const after = title.slice(idx + emoji.length);
-      const dateMatch = DATE_RE.exec(after);
-      if (dateMatch) {
-        dates[field] = dateMatch[1];
-        title = title.slice(0, idx) + after.slice(dateMatch.index + dateMatch[1].length);
-      }
-    }
-  }
-
-  if (idMatch) title = title.replace(ID_RE, "");
-  if (recurMatch) title = title.replace(RECURRENCE_RE, "");
-  if (priorityEmoji) title = title.split(priorityEmoji).join("");
+  let title = description;
   for (const tag of tags) title = title.split(tag).join("");
-
   title = title.replace(/\s{2,}/g, " ").trim();
 
   const someday = tags.includes("#someday") || filePath === join(tasksRoot, "Someday.md");
   const { project, area } = deriveProjectArea(tasksRoot, filePath, tags);
 
   return {
-    id: idMatch?.[1] ?? nanoid(8),
+    id: fields.id ?? nanoid(8),
     title,
     done,
-    doneDate: dates.done,
-    priority: priorityEmoji ? EMOJI_TO_PRIORITY[priorityEmoji] : null,
-    scheduled: dates.scheduled,
-    due: dates.due,
-    start: dates.start,
-    created: dates.created,
-    recurrence: recurMatch ? recurMatch[1].trim() : null,
+    doneDate: fields.done ?? null,
+    priority: fields.priority ? EMOJI_TO_PRIORITY[fields.priority] : null,
+    scheduled: fields.scheduled ?? null,
+    due: fields.due ?? null,
+    start: fields.start ?? null,
+    created: fields.created ?? null,
+    recurrence: fields.recurrence ?? null,
     tags: tags.filter((t) => !t.startsWith("#project/") && !t.startsWith("#area/")),
     project,
     area,
@@ -226,7 +260,7 @@ export function scanVault(config: AppConfig, { persistIds = true }: ScanOptions 
       // A task typed directly in Obsidian has no 🆔 field yet — parseLine hands it
       // a fresh id, but that's only stable once it's actually written back to the
       // file (otherwise it'd be re-randomized on every scan).
-      if (!ID_RE.test(lines[i])) {
+      if (lineId(lines[i]) === undefined) {
         if (!persistIds) {
           // Stable across rescans (unlike parseLine's random id) so a UI can still act on it.
           const key = `${relative(tasksRoot, file)}\n${task.title}`;
@@ -353,9 +387,14 @@ export function appendTask(config: AppConfig, input: NewTaskInput, targetFile?: 
   return task;
 }
 
+/** The 🆔 field of a task line, if it has one (a 🆔 inside the title doesn't count). */
+function lineId(line: string): string | undefined {
+  const m = CHECKBOX_RE.exec(line);
+  return m ? splitTrailingFields(m[3]).fields.id : undefined;
+}
+
 function lineHasId(line: string | undefined, id: string): boolean {
-  if (line === undefined || !CHECKBOX_RE.test(line)) return false;
-  return ID_RE.exec(line)?.[1] === id;
+  return line !== undefined && lineId(line) === id;
 }
 
 /**

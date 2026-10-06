@@ -44,14 +44,17 @@ task-app note show --previous --section Shutdown   # latest earlier note with th
 task-app notes [--since D] [--content] [--json]    # changed notes: ## Actions + tasks already captured from each
 task-app capture [--dry-run] [--json]   # the sweep of the notes world: adds every ## Actions bullet from an untouched note into the Inbox
 task-app sweep    # relocates completed tasks into Logbook.md; safe to run anytime
-task-app doctor [--fix] [--json]  # health check: duplicate ids, missing ✅ dates, junk in titles, misfiled Inbox items
+task-app doctor [--fix] [--json]  # health check: duplicate ids, missing ✅ dates, junk or emoji fields in titles, misfiled Inbox items
 ```
 
 If a command fails with "is no longer in …" or "appears N times", the vault changed
 underneath it or has a duplicate id. Run `task-app doctor` and show the user what it
 found before running `--fix`. `add`/`edit` reject titles that contain CLI output
 (`[area:Work]`) or a task-app flag (`--project`). That error means a flag was quoted into
-the title, so fix the command rather than stripping the text by hand.
+the title, so fix the command rather than stripping the text by hand. They also reject a Tasks
+emoji field in the title (`➕ 2026-10-12`, `📅 …`, `🔁 …`, `🆔 …`): pass it as a flag instead.
+Fields are read only from the end of the line, so `doctor` reports one stuck in a title
+(`title-field`) for the user to decide which value is real; it has no automatic fix.
 
 `list --json` is what you should use when you need to reason about existing tasks
 (dedup checks, building a plan, etc.) — it's structured and cheap on context
