@@ -82,6 +82,12 @@ export function Popover() {
               <rect x="1.5" y="5" width="13" height="6" rx="3" />
             </svg>
           </button>
+          <button className="icon" title="Eisenhower matrix" onClick={() => window.taskApp.openMatrix()}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="2" y="2" width="12" height="12" rx="2" />
+              <path d="M8 2v12M2 8h12" />
+            </svg>
+          </button>
           <button className="icon" title="Open today's note in Obsidian" onClick={() => window.taskApp.openDailyNote()}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M6 3H3.5v9.5H13V10M9 3h4v4M13 3 7.5 8.5" />

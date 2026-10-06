@@ -2,11 +2,12 @@ import { basename, dirname, join, relative } from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import { type AppConfig, loadConfig } from "../../../src/config.js";
 import { dailyNotePath, proposedTop3, readSection } from "../../../src/core/dailyNote.js";
+import { eisenhower } from "../../../src/core/eisenhower.js";
 import { taskJson } from "../../../src/core/json.js";
 import { quickParse } from "../../../src/core/quickParse.js";
 import { TaskStore } from "../../../src/core/store.js";
 import { type Task, todayStr } from "../../../src/core/task.js";
-import type { CapturePreview, ListId, MoveDest, ListInfo, Result, Snapshot, TaskPatch, WidgetTask } from "../shared/api.js";
+import type { CapturePreview, ListId, Matrix, MoveDest, ListInfo, Result, Snapshot, TaskPatch, WidgetTask } from "../shared/api.js";
 
 const RESCAN_DEBOUNCE_MS = 300;
 const DAILY_NOTE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
@@ -168,6 +169,24 @@ export class VaultService {
     return this.tasksFor(store, id).map((t) => this.toWidget(t, today));
   }
 
+  /** The Eisenhower popout: the same quadrants as the vault's Eisenhower.md note. */
+  matrix(): Matrix {
+    const store = this.store;
+    const config = this.config;
+    const empty: Matrix = { doNow: [], schedule: [], delegate: [], question: [], waiting: [] };
+    if (!store || !config || this.loadError) return empty;
+    const today = todayStr();
+    const m = eisenhower(store.all(), today, config.vaultPath);
+    const view = (ts: Task[]) => ts.map((t) => this.toWidget(t, today));
+    return {
+      doNow: view(m.doNow),
+      schedule: view(m.schedule),
+      delegate: view(m.delegate),
+      question: view(m.question),
+      waiting: view(m.waiting),
+    };
+  }
+
   private tasksFor(store: TaskStore, id: ListId): Task[] {
     if (id.startsWith("project:")) return store.byProject(id.slice("project:".length));
     if (id.startsWith("area:")) return store.byArea(id.slice("area:".length));
@@ -228,6 +247,7 @@ export class VaultService {
       waitingOn: j.waitingOn,
       recurrence: j.recurrence,
       focus: j.focus,
+      inbox: !t.project && !t.area && !t.someday && basename(t.location.file) === "Inbox.md",
       overdue: !!((j.due && j.due < today) || (j.scheduled && j.scheduled < today)),
       done: j.done,
     };

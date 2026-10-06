@@ -12,6 +12,8 @@ export interface WidgetTask {
   /** The 🔁 rule, e.g. "every monday". */
   recurrence: string | null;
   focus: boolean;
+  /** Unfiled: sitting in Inbox.md with no project or area yet. */
+  inbox: boolean;
   overdue: boolean;
   done: boolean;
 }
@@ -61,6 +63,15 @@ export interface Snapshot {
   error: string | null;
 }
 
+/** The Eisenhower popout's lists, sorted as `Tasks/Eisenhower.md` sorts them (see src/core/eisenhower.ts). */
+export interface Matrix {
+  doNow: WidgetTask[];
+  schedule: WidgetTask[];
+  delegate: WidgetTask[];
+  question: WidgetTask[];
+  waiting: WidgetTask[];
+}
+
 export interface Result {
   ok: boolean;
   error?: string;
@@ -94,6 +105,7 @@ export interface CapturePreview {
 export interface TaskAppApi {
   getSnapshot(): Promise<Snapshot>;
   getList(id: ListId): Promise<WidgetTask[]>;
+  getMatrix(): Promise<Matrix>;
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   complete(id: string): Promise<Result>;
   uncomplete(id: string): Promise<Result>;
@@ -104,6 +116,7 @@ export interface TaskAppApi {
   openTask(id: string): Promise<void>;
   openDailyNote(): Promise<void>;
   togglePill(): Promise<void>;
+  openMatrix(): Promise<void>;
   hideWindow(): void;
   /** Fired each time the capture window is summoned, so it can clear and refocus. */
   onCaptureReset(cb: () => void): () => void;

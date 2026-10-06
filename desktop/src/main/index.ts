@@ -9,12 +9,14 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const CAPTURE_SHORTCUT = "Control+Alt+Space";
 const POPOVER = { width: 360, height: 540 };
 const PILL = { width: 320, height: 44 };
+const MATRIX = { width: 760, height: 580, minWidth: 520, minHeight: 400 };
 const TITLE_MAX = 28;
 
 /** Window position and visibility of the pill, remembered between launches. */
 interface State {
   pillVisible: boolean;
   pillBounds?: { x: number; y: number };
+  matrixBounds?: Electron.Rectangle;
 }
 const statePath = () => join(app.getPath("userData"), "widget-state.json");
 function loadState(): State {
@@ -33,6 +35,7 @@ let tray: Tray;
 let popover: BrowserWindow;
 let capture: BrowserWindow | null = null;
 let pill: BrowserWindow | null = null;
+let matrix: BrowserWindow | null = null;
 const vault = new VaultService(broadcast);
 
 function snapshot(): Snapshot {
@@ -57,7 +60,7 @@ function updateTrayTitle(s: Snapshot): void {
   tray.setTitle(left ? ` ${left}` : "");
 }
 
-function loadPage(win: BrowserWindow, view: "popover" | "capture" | "pill"): void {
+function loadPage(win: BrowserWindow, view: "popover" | "capture" | "pill" | "matrix"): void {
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(`${process.env.ELECTRON_RENDERER_URL}#${view}`);
   else win.loadFile(join(here, "../renderer/index.html"), { hash: view });
 }
@@ -140,10 +143,60 @@ function setPillVisible(visible: boolean): void {
   broadcast();
 }
 
+/**
+ * The Eisenhower popout. Unlike the popover it stays open when you click away, so it can sit
+ * beside Obsidian or a calendar while you plan; Esc or its close button hides it.
+ */
+function showMatrix(): void {
+  if (!matrix) {
+    const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    const saved = state.matrixBounds;
+    const onScreen = saved && screen.getAllDisplays().some((d) => rectsOverlap(d.workArea, saved));
+    const bounds = onScreen
+      ? saved
+      : {
+          x: Math.round(area.x + (area.width - MATRIX.width) / 2),
+          y: Math.round(area.y + (area.height - MATRIX.height) / 2),
+          width: MATRIX.width,
+          height: MATRIX.height,
+        };
+    matrix = makeWindow({
+      ...bounds,
+      minWidth: MATRIX.minWidth,
+      minHeight: MATRIX.minHeight,
+      resizable: true,
+      vibrancy: "sidebar",
+      visualEffectState: "active",
+    });
+    const remember = () => {
+      state.matrixBounds = matrix!.getBounds();
+      saveState();
+    };
+    matrix.on("moved", remember);
+    matrix.on("resized", remember);
+    matrix.on("closed", () => (matrix = null));
+    matrix.once("ready-to-show", () => {
+      matrix?.show();
+      matrix?.focus();
+    });
+    loadPage(matrix, "matrix");
+  } else {
+    matrix.show();
+    matrix.focus();
+  }
+  popover.hide();
+  vault.rescan();
+}
+
+function rectsOverlap(a: Electron.Rectangle, b: Electron.Rectangle): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
 function trayMenu(): Menu {
   return Menu.buildFromTemplate([
     { label: "Quick capture", accelerator: CAPTURE_SHORTCUT, click: showCapture },
     { label: "Show focus pill", type: "checkbox", checked: state.pillVisible, click: (i) => setPillVisible(i.checked) },
+    { label: "Eisenhower matrix", click: showMatrix },
     { label: "Open today's note", click: () => openUrl(vault.obsidianUrlForDailyNote()) },
     { type: "separator" },
     // Unpackaged, this would register the bare Electron binary rather than the widget.
@@ -168,6 +221,8 @@ async function openUrl(url: string | null): Promise<void> {
 function registerIpc(): void {
   ipcMain.handle("snapshot:get", () => snapshot());
   ipcMain.handle("list:get", (_e, id: ListId) => vault.list(id));
+  ipcMain.handle("matrix:get", () => vault.matrix());
+  ipcMain.handle("matrix:open", () => showMatrix());
   ipcMain.handle("task:complete", (_e, id: string) => vault.complete(id));
   ipcMain.handle("task:uncomplete", (_e, id: string) => vault.uncomplete(id));
   ipcMain.handle("task:move", (_e, id: string, dest: MoveDest) => vault.move(id, dest));

@@ -93,6 +93,14 @@ to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`
   - `low` 🔽 / `lowest` ⏬ for nice-to-haves.
   - Never raise a priority because something is due soon. Set or tighten the date instead.
   When you set anything other than normal, say which priority you chose in your confirmation.
+- **Only 📅 due counts as urgent in the matrix.** Today and `overdue` also treat a past ⏳
+  scheduled date as late, so an open task with a past ⏳ and no 📅 is overdue in Today but not
+  urgent in the matrix. That split is deliberate. Such a task usually means a date was set
+  arbitrarily and then overtaken. `review --json` lists these under `scheduledPastNoDue`
+  (`daysPast`, and `stale` at 7+ days; waiting-on and Someday items are left out). Don't change
+  either rule, and never re-date these silently. Ask about each one: a real `--due`, a new
+  `--scheduled`, or no date (`--scheduled none`). Recurring ones may just need `skip`. Act on a
+  yes. `doctor` doesn't report them, because nothing in the vault is broken.
 - **Estimates** (`--est 45m`) let a plan be checked against free calendar time.
 - **Recurring tasks** (`--recurrence "every monday"` plus a `--scheduled` first date) spawn their
   next occurrence on `complete`, always after today, so missed weeks don't pile up as overdue.

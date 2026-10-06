@@ -30,6 +30,9 @@ anything needing prep.
 - **Prep for tomorrow**: meetings tomorrow that need something read or decided today.
 - **Inbox**: only if any item is `stale` (3+ days). Give a count, not a list; the offer
   below covers it.
+- **Dates to check**: only if `scheduledPastNoDue` has `stale` items (past their ⏳ by 7+ days,
+  no 📅). Give a count. They're overdue in Today but not urgent in the matrix, so the date was
+  probably arbitrary. Offer to go through them (weekly review step 7); don't re-date anything.
 
 ## 3. Write
 
@@ -55,8 +58,11 @@ Pipe into `task-app note write --section Shutdown`:
 **Tomorrow**: 3 meetings, 3h free; prep: skim the pen-test scope before the 10:00
 
 **Inbox**: 4 items, 2 stale
+
+**Dates to check**: 2 tasks past their scheduled date by 7+ days, no due date
 ```
 
 Omit empty blocks. Finish in chat with the same summary and offer: *"Want me to capture any of
 those, or adjust tomorrow's three?"* On a yes, capture per `meeting-capture.md`. If the Inbox
-had stale items, also offer to triage it (`triage-inbox.md`).
+had stale items, also offer to triage it (`triage-inbox.md`). If there were dates to check,
+offer to go through them: a real due date, a new scheduled date, or no date for each, applied on a yes.
