@@ -84,6 +84,15 @@ export interface MoveDest {
   someday?: boolean;
 }
 
+export type Priority = "highest" | "high" | "medium" | "low" | "lowest";
+
+/** In-place fields the widget can change; null clears (priority null = normal). */
+export interface TaskPatch {
+  scheduled?: string | null;
+  due?: string | null;
+  priority?: Priority | null;
+}
+
 export interface CapturePreview {
   title: string;
   scheduled: string | null;
@@ -101,6 +110,7 @@ export interface TaskAppApi {
   complete(id: string): Promise<Result>;
   uncomplete(id: string): Promise<Result>;
   move(id: string, dest: MoveDest): Promise<Result>;
+  edit(id: string, patch: TaskPatch): Promise<Result>;
   capture(text: string): Promise<Result>;
   previewCapture(text: string): Promise<CapturePreview>;
   openTask(id: string): Promise<void>;

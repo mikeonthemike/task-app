@@ -14,7 +14,8 @@ const QUADRANTS: { key: keyof Omit<Matrix, "waiting">; name: string; hint: strin
 
 /**
  * The Eisenhower popout: the vault's Eisenhower.md, live. Read-only sorting; the only writes are
- * the ones every row already has (tick, right-click Move). Priority and dates aren't edited here.
+ * the ones every row already has (tick, and right-click Move, Set date, Set priority). Changing a
+ * date or priority re-sorts the task into its new quadrant on the next snapshot.
  */
 export function MatrixWindow() {
   const snap = useSnapshot();
@@ -97,7 +98,7 @@ export function MatrixWindow() {
         )}
 
         {error && <div className="toast">{error}</div>}
-        {menu && <TaskMenu target={menu} lists={snap.lists} onClose={() => setMenu(null)} onError={setError} />}
+        {menu && <TaskMenu target={menu} lists={snap.lists} today={snap.date} onClose={() => setMenu(null)} onError={setError} />}
       </div>
     </TaskMenuContext.Provider>
   );
