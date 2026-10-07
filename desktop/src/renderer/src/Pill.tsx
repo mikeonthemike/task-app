@@ -26,7 +26,7 @@ export function Pill() {
           <TaskRow key={task.id} task={task} today={snap.date} onError={setError} compact />
         </ul>
       ) : (
-        <span className="empty">{snap.error ? "Can't read the vault" : "No top 3 yet"}</span>
+        <span className="empty">{snap.error ? "Can't read the vault" : "Nothing in your top 3"}</span>
       )}
       {focus.length > 1 && (
         <button className="step" title={isProposal ? "Next proposed task" : "Next focus task"} onClick={() => setIndex((index + 1) % focus.length)}>

@@ -116,7 +116,7 @@ export function Popover() {
                     <p className="empty">From today's plan. Reply “confirm” to Claude to lock these in.</p>
                   </>
                 ) : (
-                  <p className="empty">No top 3 yet. Ask Claude to plan your day.</p>
+                  <p className="empty">Nothing in your top 3.</p>
                 )}
               </section>
 
