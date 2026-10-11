@@ -8,11 +8,11 @@ interface Props {
 
 const GROUPS: { kind: ListInfo["kind"]; heading: string | null }[] = [
   { kind: "view", heading: null },
+  { kind: "goal", heading: "Goals" },
   { kind: "project", heading: "Projects" },
-  { kind: "area", heading: "Areas" },
 ];
 
-/** Drops down from the header title: every list, grouped like the TUI's order. */
+/** Drops down from the header title: every list, grouped like the TUI's order. Areas are left out: they stay on the data, not in navigation. */
 export function ListPicker({ lists, current, onPick }: Props) {
   return (
     <nav className="picker" aria-label="Lists">

@@ -56,7 +56,7 @@ export function Popover() {
   );
 
   const current = snap.lists.find((l) => l.id === list);
-  const subtitle = current?.kind === "project" ? "Project" : current?.kind === "area" ? "Area" : current?.count ? `${current.count} open` : "";
+  const subtitle = current?.kind === "project" ? "Project" : current?.kind === "area" ? "Area" : current?.kind === "goal" ? "Goal" : current?.count ? `${current.count} open` : "";
 
   return (
     <TaskMenuContext.Provider value={setMenu}>

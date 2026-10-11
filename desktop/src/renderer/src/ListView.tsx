@@ -15,7 +15,7 @@ const EMPTY: Partial<Record<string, string>> = {
   logbook: "Nothing completed yet.",
 };
 
-/** Any list other than Today: a flat list, or grouped by project/area for "All open". */
+/** Any list other than Today: a flat list, or grouped by project for "All open" and goals. */
 export function ListView({ id, snap, onError }: Props) {
   const [tasks, setTasks] = useState<WidgetTask[] | null>(null);
 
@@ -32,12 +32,15 @@ export function ListView({ id, snap, onError }: Props) {
   if (!tasks.length) return <p className="empty">{EMPTY[id] ?? "Nothing open here."}</p>;
 
   const scoped = id.startsWith("project:") || id.startsWith("area:");
-  const row = (t: WidgetTask) => <TaskRow key={t.id} task={t} today={snap.date} onError={onError} hideWhere={scoped || id === "all" || id === "inbox"} />;
+  const inGoal = id.startsWith("goal:");
+  const row = (t: WidgetTask) => <TaskRow key={t.id} task={t} today={snap.date} onError={onError} hideWhere={scoped || id === "all" || id === "inbox"} hideGoal={scoped || inGoal} />;
 
-  if (id !== "all") return <ul>{tasks.map(row)}</ul>;
+  if (id !== "all" && !inGoal) return <ul>{tasks.map(row)}</ul>;
 
+  // A goal list is grouped by project too, so you can see which project is carrying it.
+  const ordered = inGoal ? [...tasks].sort((a, b) => (a.project ?? a.area ?? "~").localeCompare(b.project ?? b.area ?? "~")) : tasks;
   const groups: { name: string; tasks: WidgetTask[] }[] = [];
-  for (const t of tasks) {
+  for (const t of ordered) {
     const name = t.project ?? t.area ?? "Inbox";
     const last = groups[groups.length - 1];
     if (last?.name === name) last.tasks.push(t);

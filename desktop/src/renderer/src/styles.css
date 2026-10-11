@@ -391,6 +391,13 @@ details[open] > summary::before {
   color: var(--muted);
 }
 
+.goal-chip {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--faint);
+  color: var(--muted);
+}
+
 .urgent {
   color: var(--urgent);
 }
