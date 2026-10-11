@@ -190,6 +190,10 @@ export class VaultService {
   private tasksFor(store: TaskStore, id: ListId): Task[] {
     if (id.startsWith("project:")) return store.byProject(id.slice("project:".length));
     if (id.startsWith("area:")) return store.byArea(id.slice("area:".length));
+    if (id.startsWith("goal:")) {
+      const goal = id.slice("goal:".length);
+      return store.all().filter((t) => !t.done && store.goalOf(t) === goal);
+    }
     switch (id) {
       case "today":
         return store.today();
@@ -228,6 +232,11 @@ export class VaultService {
       view("anytime", "Anytime"),
       view("someday", "Someday"),
       view("logbook", "Logbook"),
+      ...store
+        .goals()
+        .map((g): ListInfo => ({ id: `goal:${g.name}`, label: g.name, kind: "goal", count: this.tasksFor(store, `goal:${g.name}`).length }))
+        .filter((l) => l.count)
+        .sort((a, b) => (b.count ?? 0) - (a.count ?? 0)),
       ...store.projects().map((name): ListInfo => ({ id: `project:${name}`, label: name, kind: "project", count: store.byProject(name).length })),
       ...store.areas().map((name): ListInfo => ({ id: `area:${name}`, label: name, kind: "area", count: store.byArea(name).length })),
     ];
@@ -240,6 +249,7 @@ export class VaultService {
       title: j.title,
       project: j.project,
       area: j.area,
+      goal: j.goal,
       due: j.due,
       scheduled: j.scheduled,
       priority: j.priority,

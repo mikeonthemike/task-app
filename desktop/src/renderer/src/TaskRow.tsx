@@ -11,9 +11,11 @@ interface Props {
   compact?: boolean;
   /** Leave the project/area out of the meta line (the list already says where it is). */
   hideWhere?: boolean;
+  /** Leave the goal chip out (the list is already one project or goal). */
+  hideGoal?: boolean;
 }
 
-export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
+export function TaskRow({ task, today, onError, compact, hideWhere, hideGoal }: Props) {
   // Show the tick straight away; the vault write and rescan follow a moment later.
   const [pending, setPending] = useState(false);
   const openMenu = useTaskMenu();
@@ -29,6 +31,7 @@ export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
   }
 
   const meta = compact ? [] : metaParts(task, today, hideWhere);
+  const showGoal = !compact && !hideGoal && !!task.goal;
   const repeats = !compact && !!task.recurrence;
   return (
     <li
@@ -54,11 +57,16 @@ export function TaskRow({ task, today, onError, compact, hideWhere }: Props) {
           {task.title}
         </button>
 
-        {(meta.length > 0 || repeats) && (
+        {(meta.length > 0 || repeats || showGoal) && (
           <div className="meta">
             {repeats && (
               <span className="repeat" title={`Repeats ${task.recurrence}`} aria-label={`Repeats ${task.recurrence}`}>
                 🔁
+              </span>
+            )}
+            {showGoal && (
+              <span className="goal-chip" title={`Goal: ${task.goal}`}>
+                {task.goal}
               </span>
             )}
             {meta.map((m, i) => (

@@ -4,6 +4,8 @@ export interface WidgetTask {
   title: string;
   project: string | null;
   area: string | null;
+  /** The goal it serves: its own #goal/ tag, else its project's. */
+  goal: string | null;
   due: string | null;
   scheduled: string | null;
   priority: string | null;
@@ -29,12 +31,13 @@ export type ListId =
   | "someday"
   | "logbook"
   | `project:${string}`
-  | `area:${string}`;
+  | `area:${string}`
+  | `goal:${string}`;
 
 export interface ListInfo {
   id: ListId;
   label: string;
-  kind: "view" | "project" | "area";
+  kind: "view" | "goal" | "project" | "area";
   /** Open tasks in it; null where a count isn't meaningful (Logbook). */
   count: number | null;
 }
