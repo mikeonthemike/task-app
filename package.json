@@ -6,7 +6,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "task-app": "./bin/task-app.js"
+    "task-app": "./bin/task-app.js",
+    "task-app-mcp": "./bin/task-app-mcp.js"
   },
   "scripts": {
     "dev": "tsx src/cli.tsx",
@@ -17,15 +18,17 @@
     "widget": "npm --prefix desktop start",
     "widget:install": "npm --prefix desktop run install-app -- --open",
     "test": "node --import tsx --test test/*.test.ts",
-    "skill:pack": "cd skill && rm -f ../task-app-skill.zip && zip -qr ../task-app-skill.zip task-app && echo 'Wrote task-app-skill.zip \u2014 upload it in Claude: Settings \u2192 Capabilities \u2192 Skills'"
+    "skill:pack": "cd skill && rm -f ../task-app-skill.zip && zip -qr ../task-app-skill.zip task-app && echo 'Wrote task-app-skill.zip — upload it in Claude: Settings → Capabilities → Skills'"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "chrono-node": "^2.7.7",
     "gray-matter": "^4.0.3",
     "ink": "^5.0.1",
     "ink-text-input": "^6.0.0",
     "nanoid": "^5.0.9",
-    "react": "^18.3.1"
+    "react": "^18.3.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

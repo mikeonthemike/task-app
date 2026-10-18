@@ -9,8 +9,9 @@ import { TaskStore } from "./core/store.js";
 import type { NewTaskInput, Task } from "./core/task.js";
 import { quickParse } from "./core/quickParse.js";
 import { formatTask, nullableDate, normalizeTag, parseArgs, parsePriority } from "./core/cliArgs.js";
-import { checkVault, cleanTitle, fixVault, type Issue } from "./core/doctor.js";
-import { fieldsInTitle, stripTitleFields } from "./core/vault.js";
+import { checkVault, fixVault, type Issue } from "./core/doctor.js";
+import { requireCleanTitle } from "./core/title.js";
+import { tasksForSection } from "./core/sections.js";
 import { taskJson } from "./core/json.js";
 import { estimateTags, focusTags, formatDuration, goalTags, isFocus, MAX_FOCUS, waitingOn, waitingTags } from "./core/meta.js";
 import { resolveGoal, updateProjectMeta } from "./core/goals.js";
@@ -50,26 +51,6 @@ function readStdin(): string {
   } catch {
     return "";
   }
-}
-
-/**
- * Rejects titles carrying CLI output (`[area:Work]`), a flag that didn't parse (`--project`), or
- * a Tasks emoji field (`➕ 2026-10-12`), which would sit in the title instead of acting as a field.
- */
-function requireCleanTitle(title: string): string {
-  const cleaned = cleanTitle(title);
-  if (cleaned !== title.trim()) {
-    throw new Error(
-      `Title "${title}" contains CLI output or a task-app flag. Did you mean "${cleaned}" with the flag passed separately?`,
-    );
-  }
-  const fields = fieldsInTitle(cleaned);
-  if (fields.length) {
-    throw new Error(
-      `Title "${title}" contains a Tasks field (${fields.join(", ")}). Did you mean "${stripTitleFields(cleaned)}" with the date or value passed as a flag?`,
-    );
-  }
-  return cleaned;
 }
 
 function formatIssue(i: Issue): string {
@@ -254,25 +235,7 @@ async function main(): Promise<void> {
     const section = args.positional[0] ?? "today";
     const store = new TaskStore(config);
 
-    let tasks: Task[];
-    if (section === "inbox") tasks = store.inbox();
-    else if (section === "today") tasks = store.today();
-    else if (section === "overdue") tasks = store.overdue();
-    else if (section === "upcoming") tasks = store.upcoming();
-    else if (section === "anytime") tasks = store.anytime();
-    else if (section === "someday") tasks = store.someday();
-    else if (section === "logbook") tasks = store.logbook();
-    else if (section === "all") tasks = store.all();
-    else if (section === "focus") tasks = store.focus();
-    else if (section === "waiting") tasks = store.waiting();
-    else if (section === "recurring") tasks = store.recurring();
-    else if (section.startsWith("goal:")) {
-      const goal = resolveGoal(store.goals(), section.slice("goal:".length));
-      tasks = store.all().filter((t) => !t.done && store.goalOf(t) === goal.name);
-    }
-    else if (section.startsWith("project:")) tasks = store.byProject(section.slice("project:".length));
-    else if (section.startsWith("area:")) tasks = store.byArea(section.slice("area:".length));
-    else throw new Error(`Unknown section "${section}". See "task-app help".`);
+    const tasks = tasksForSection(store, section);
 
     if (args.bool("json")) {
       console.log(JSON.stringify(tasks.map((t) => taskJson(t, store)), null, 2));

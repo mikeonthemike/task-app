@@ -172,6 +172,40 @@ prefers what you've said over its defaults.
 - **Other agents:** link or copy `skill/task-app` into your agent's skills directory. If your
   agent doesn't support skills, point it at `SKILL.md` from its instructions file.
 
+### Claude Desktop chat (MCP server)
+
+The skill needs a shell, which a plain Claude chat doesn't have. For chat in the Claude Desktop app
+on the machine that holds the vault, `task-app-mcp` is a local [MCP](https://modelcontextprotocol.io)
+server over stdio. It reads the same `~/.config/task-app/config.json` and uses the same core as
+the CLI, so ids, title checks and file layout behave identically.
+
+| Tool | What it does |
+| --- | --- |
+| `list_tasks` | One section (`today`, `inbox`, `project:<name>`, …), capped at 100 rows by default |
+| `review` | The `review --json` overview: focus, overdue, waiting, goal health, Inbox age |
+| `goals` | Goals with open / focus / done-in-7-days counts |
+| `daily_note` | A day's note sections (Plan, Meetings, Shutdown) |
+| `add_task` | Captures a task into the Inbox (or a project/area that already exists) |
+
+It is deliberately read-mostly: no complete, edit, move, focus, sweep or capture. Add one only when
+you want chat to change that part of the vault. Add this to
+`~/Library/Application Support/Claude/claude_desktop_config.json` (use your own paths; `which node`
+gives the first one) and restart the app:
+
+```json
+{
+  "mcpServers": {
+    "task-app": {
+      "command": "/usr/local/bin/node",
+      "args": ["/path/to/task-app/dist/mcp/server.js"]
+    }
+  }
+}
+```
+
+Run `npm run build` after changing the source, as with the CLI. The MCP server only exists on this
+machine, so it won't work from claude.ai in a browser or the mobile app.
+
 ### Daily routines
 
 The routines set how the day runs. You can run each one on request or put it on a schedule;

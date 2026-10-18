@@ -186,6 +186,11 @@ and it's the source for every installed copy. In Claude it's uploaded as an acco
 load it from their own skills directory. After changing the skill here, tell the user to
 re-upload or re-copy it.
 
+`src/mcp/` is a small stdio MCP server (`task-app-mcp`) for Claude Desktop chat, where there's no
+shell to run the CLI. It calls `src/core` directly and exposes `list_tasks`, `review`, `goals`,
+`daily_note` and `add_task` only. The "CLI is the only way to touch the vault" rule still holds for
+you: use the CLI here. Keep the server read-mostly unless the user asks for more.
+
 ## Developing task-app
 
 `npm test` (node:test against throwaway temp vaults, never the real one) and
