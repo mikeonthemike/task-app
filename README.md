@@ -206,6 +206,40 @@ gives the first one) and restart the app:
 Run `npm run build` after changing the source, as with the CLI. The MCP server only exists on this
 machine, so it won't work from claude.ai in a browser or the mobile app.
 
+**If the tools don't show up in chat**
+
+- **Edit the config with Claude fully quit.** Claude Desktop rewrites `claude_desktop_config.json`
+  from memory when it quits, which silently drops an `mcpServers` entry added while the app was
+  running. Quit with ⌘Q (closing the window isn't enough), edit the file, then reopen. To add the
+  entry from a terminal while the app is closed:
+
+  ```bash
+  python3 - <<'EOF'
+  import json, os
+  p = os.path.expanduser("~/Library/Application Support/Claude/claude_desktop_config.json")
+  d = json.load(open(p))
+  d.setdefault("mcpServers", {})["task-app"] = {"command": "/usr/local/bin/node", "args": ["/path/to/task-app/dist/mcp/server.js"]}
+  json.dump(d, open(p, "w"), indent=2)
+  EOF
+  ```
+
+- **Check the app launched it.** A working setup writes `~/Library/Logs/Claude/mcp-server-task-app.log`.
+  If that file doesn't exist, Desktop never started the server; check that `mcpServers.task-app`
+  is still in the config. In `main.log`, `no stdio servers connected` means the same thing.
+- **Run it by hand.** `node dist/mcp/server.js` should sit waiting on stdin without printing
+  anything (stdout carries the protocol, so any output there is a bug). It reads
+  `~/.config/task-app/config.json`, so run `task-app init` first if that file is missing.
+- **`dist/` must exist.** `npm run build` creates it; a missing `dist/mcp/server.js` is an
+  instant start-up failure.
+- **Node path.** Use the absolute path from `which node`. Desktop doesn't load your shell profile,
+  so a bare `node` or an nvm-managed one often isn't found. Update the config if you change versions.
+- **Use the right kind of chat.** Only a normal Desktop chat reads this file. Cowork and Code-tab
+  sessions run elsewhere and use their own connectors, so look for `list_tasks` and `add_task`
+  in a plain chat.
+- **Upload the skill, and test without it first.** Re-upload `task-app-skill.zip` after skill
+  changes (Settings → Capabilities → Skills). If chat says the tools aren't connected, ask a
+  plain question without `/task-app` to tell a server problem from a skill problem.
+
 ### Daily routines
 
 The routines set how the day runs. You can run each one on request or put it on a schedule;
