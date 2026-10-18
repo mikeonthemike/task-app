@@ -1,10 +1,22 @@
 ---
 name: task-app
-description: Manages the user's personal productivity system, a Things-style task manager stored as markdown in their Obsidian vault, via the local `task-app` CLI (never by hand-editing vault files). Trigger whenever the user wants to add/capture/jot down a task, even casually ("remind me to...", "I need to...", "add to my list", "waiting on X for Y"); asks what's on their plate, agenda, focus or to-do list, today/this week/overdue/upcoming; wants a morning plan, top 3, evening shutdown, or weekly review; asks about their goals or what they're waiting on; wants actions pulled from their meeting notes ("process my notes"), or asks you to check Gmail/Calendar/Slack for anything actionable; wants to mark something done, reopen it, or move it between projects/areas; wants focus time blocked in their calendar; or wants to clean up/archive finished tasks. Also trigger on "my Obsidian tasks"/"my daily note" in a to-do or planning context. Needs the `task-app` CLI and a shell tool — check with `task-app help` first.
-compatibility: Works with any agent that can run shell commands on the machine that holds the vault, with the `task-app` CLI on PATH (installed via `npm link` from a clone of the task-app repo). Not usable in a browser-only or sandboxed session with no access to the host shell. Gmail/Calendar/Slack steps use whatever connectors the session has, and are skipped (and said so) when one is missing.
+description: Manages the user's personal task manager (Things-style, markdown in their Obsidian vault) via the `task-app` MCP tools or CLI, never by hand-editing vault files. Trigger when the user wants to add/capture a task ("remind me to...", "I need to...", "waiting on X for Y"); asks what's on their plate, today, focus, overdue, upcoming, goals or waiting-on; wants a morning plan, top 3, shutdown or weekly review; wants actions pulled from meeting notes or Gmail/Calendar/Slack; wants to complete, reopen, move or archive tasks; or wants calendar focus blocks. Also trigger on "my Obsidian tasks" or "my daily note". Needs the task-app MCP tools or a shell with the CLI.
+compatibility: In Claude Desktop chat, uses the local task-app MCP server (read tasks, capture to the Inbox). Otherwise works with any agent that can run shell commands on the machine that holds the vault, with the `task-app` CLI on PATH (installed via `npm link` from a clone of the task-app repo). Not usable in a browser-only or sandboxed session with no access to the host shell. Gmail/Calendar/Slack steps use whatever connectors the session has, and are skipped (and said so) when one is missing.
 ---
 
 # task-app
+
+## Which interface you have
+
+Check your tools first. If you have the `task-app` MCP tools (`list_tasks`, `review`, `goals`,
+`daily_note`, `add_task`), you are in Claude Desktop chat and there is **no shell**: use them and
+don't look for the CLI or conclude the vault is unreachable. They are read-mostly. `add_task`
+captures to the Inbox (same rules as `task-app add`: dates go in `due`/`scheduled` as YYYY-MM-DD,
+never in the title). For anything they can't do (complete, edit, move, focus, notes, sweep), say
+so and tell the user to do it from Claude Code or the CLI. If you have neither the MCP tools nor
+a shell on the vault's machine, say that and stop; don't guess at their tasks.
+
+The rest of this file describes the CLI, which is the full interface.
 
 The user's tasks live as plain markdown in their Obsidian vault, in the
 [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/) format. A local CLI called
