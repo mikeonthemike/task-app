@@ -235,7 +235,18 @@ function registerIpc(): void {
   ipcMain.on("window:hide", (e) => BrowserWindow.fromWebContents(e.sender)?.hide());
 }
 
+// One instance only: a second launch (e.g. opening the app because its tray icon is hidden)
+// shows the popover in the running copy instead of starting a rival that fights over the shortcut.
+if (!app.requestSingleInstanceLock()) {
+  process.exit(0); // app.quit()/exit() before ready can leave the losing process lingering
+} else {
+  app.on("second-instance", () => {
+    if (popover && !popover.isVisible()) togglePopover();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!app.hasSingleInstanceLock()) return;
   app.dock?.hide(); // menu-bar app: no Dock icon, no app switcher entry
   state = loadState();
 
