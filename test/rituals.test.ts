@@ -211,6 +211,20 @@ describe("meeting notes scan", () => {
     assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 2);
   });
 
+  test("a singular ## Action heading counts, and ticked bullets are reported but not captured", () => {
+    write("Standup.md", "## Action\n- [x] Review change\n- [x] Reraise ticket\n");
+    const note = scanNotes(config, [], { since: "2000-01-01" }).find((n) => n.name === "Standup")!;
+    assert.equal(note.actionCount, 0);
+    assert.equal(note.doneCount, 2);
+    assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 0);
+  });
+
+  test("sinceMs only returns notes modified after the watermark", () => {
+    write("Fresh.md", "x");
+    assert.equal(scanNotes(config, [], { sinceMs: Date.now() + 60_000 }).length, 0);
+    assert.equal(scanNotes(config, [], { sinceMs: 0 }).length, 1);
+  });
+
   test("--since filters by modification date", () => {
     write("Old.md", "x");
     assert.equal(scanNotes(config, [], { since: "2999-01-01" }).length, 0);

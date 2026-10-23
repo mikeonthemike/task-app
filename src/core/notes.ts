@@ -1,7 +1,7 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import matter from "gray-matter";
-import type { AppConfig } from "../config.js";
+import { configDir, type AppConfig } from "../config.js";
 import { sectionOf } from "./dailyNote.js";
 import { cleanTitle } from "./doctor.js";
 import type { TaskStore } from "./store.js";
@@ -23,6 +23,8 @@ export interface NoteInfo {
   actions: string | null; // body of ## Actions, if present and non-empty
   /** Bullets in ## Actions that `capture` would treat as actions (see actionBullets). */
   actionCount: number;
+  /** Ticked (`- [x]`) bullets in ## Actions: already done in the note, so never captured. */
+  doneCount: number;
   /** Tasks already captured from this note (their notes say "From: <name>.md" or "From: [[<name>]]"). */
   captured: { id: string; title: string; done: boolean }[];
   body?: string;
@@ -54,10 +56,28 @@ export function capturedFrom(t: Task, name: string): boolean {
   return t.notes.some((n) => n === `From: ${name}.md` || n === `From: [[${name}]]` || n === `From: ${name}`);
 }
 
+const WATERMARK_PATH = () => join(configDir(), "notes-watermark.json");
+
+/** When `capture` (or `notes --mark`) last ran, as epoch ms, or null if never. */
+export function readNotesWatermark(): number | null {
+  try {
+    const t = JSON.parse(readFileSync(WATERMARK_PATH(), "utf8")).lastRun;
+    return typeof t === "number" ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Records "all notes up to now have been looked at", for `notes --new`. */
+export function markNotesSeen(now = Date.now()): void {
+  mkdirSync(configDir(), { recursive: true });
+  writeFileSync(WATERMARK_PATH(), JSON.stringify({ lastRun: now }), "utf8");
+}
+
 export function scanNotes(
   config: AppConfig,
   tasks: Task[],
-  opts: { since?: string; includeBody?: boolean } = {},
+  opts: { since?: string; sinceMs?: number; includeBody?: boolean } = {},
 ): NoteInfo[] {
   const skip = new Set([join(config.vaultPath, config.tasksDir)]);
   const tpl = templatesFolder(config);
@@ -77,7 +97,9 @@ export function scanNotes(
 
   const out: NoteInfo[] = [];
   for (const file of files) {
-    const modified = localStamp(statSync(file).mtime);
+    const mtime = statSync(file).mtime;
+    const modified = localStamp(mtime);
+    if (opts.sinceMs !== undefined && mtime.getTime() <= opts.sinceMs) continue;
     if (opts.since && modified.slice(0, 10) < opts.since) continue;
 
     const name = basename(file, ".md");
@@ -90,7 +112,8 @@ export function scanNotes(
       // Malformed frontmatter: treat the whole file as body.
     }
     const daily = /^\d{4}-\d{2}-\d{2}$/.test(name);
-    const actions = sectionOf(content, "Actions");
+    // The meeting template says "Actions", but "## Action" is an easy slip.
+    const actions = sectionOf(content, "Actions") || sectionOf(content, "Action");
 
     out.push({
       path: relative(config.vaultPath, file),
@@ -102,6 +125,7 @@ export function scanNotes(
       area: asString(data.area),
       actions: actions || null,
       actionCount: actions ? actionBullets(actions).length : 0,
+      doneCount: actions ? doneBullets(actions) : 0,
       captured: tasks.filter((t) => capturedFrom(t, name)).map((t) => ({ id: t.id, title: t.title, done: t.done })),
       ...(opts.includeBody ? { body: content.trim() } : {}),
     });
@@ -132,6 +156,10 @@ function actionBullets(actionsBody: string): string[] {
     out.push(text);
   }
   return out;
+}
+
+function doneBullets(actionsBody: string): number {
+  return actionsBody.split("\n").filter((l) => /^\s*[-*+]\s+\[[xX]\]/.test(l)).length;
 }
 
 export interface CaptureResult {
