@@ -17,7 +17,7 @@ import { estimateTags, focusTags, formatDuration, goalTags, isFocus, MAX_FOCUS, 
 import { resolveGoal, updateProjectMeta } from "./core/goals.js";
 import { buildReview } from "./core/review.js";
 import { dailyNotePath, listSections, previousNoteDate, readNote, readSection, writeSection } from "./core/dailyNote.js";
-import { captureNotesToInbox, scanNotes } from "./core/notes.js";
+import { captureNotesToInbox, markNotesSeen, readNotesWatermark, scanNotes } from "./core/notes.js";
 import { todayStr } from "./core/task.js";
 import { readFileSync } from "node:fs";
 
@@ -152,11 +152,14 @@ Usage:
                                      tidying up Project/Area files. Safe to run
                                      anytime — doesn't change what "logbook" shows.
 
-  task-app notes [--since D] [--content] [--json]
+  task-app notes [--since D | --new] [--mark] [--content] [--json]
                                      Your notes (meeting + daily) changed since D
                                      (default today): ## Actions section and the
                                      tasks already captured from each ("From: …").
-                                     Read-only. Skips task files and templates.
+                                     --new = changed since the last capture or
+                                     "notes --mark" (everything if never run);
+                                     --mark records "seen up to now" without
+                                     capturing. Skips task files and templates.
 
   task-app capture [--dry-run] [--json]
                                      The sweep of the notes world: adds every
@@ -461,11 +464,17 @@ async function main(): Promise<void> {
     const args = parseArgs(rest);
     const since = nullableDate(args.one("since"), "since") ?? todayStr();
     const store = new TaskStore(config);
-    const notes = scanNotes(config, store.all(), { since, includeBody: args.bool("content") });
+    const fresh = args.bool("new");
+    const last = fresh ? readNotesWatermark() : null;
+    const notes = scanNotes(config, store.all(), fresh
+      ? { sinceMs: last ?? undefined, includeBody: args.bool("content") }
+      : { since, includeBody: args.bool("content") });
+    if (args.bool("mark")) markNotesSeen();
     if (args.bool("json")) return console.log(JSON.stringify(notes, null, 2));
-    if (!notes.length) return console.log(`(no notes changed since ${since})`);
+    if (!notes.length) return console.log(fresh ? "(no notes changed since the last capture/mark)" : `(no notes changed since ${since})`);
     for (const n of notes) {
-      const actions = n.actions ? `${n.actionCount} action(s)` : "no ## Actions";
+      const done = n.doneCount ? `, ${n.doneCount} already ticked` : "";
+      const actions = n.actions ? `${n.actionCount} open action(s)${done}` : "no ## Actions";
       console.log(`${n.modified}  ${n.path}  — ${actions}, ${n.captured.length} task(s) captured`);
     }
     return;
@@ -476,6 +485,7 @@ async function main(): Promise<void> {
     const dryRun = args.bool("dry-run");
     const store = new TaskStore(config);
     const { added, skipped } = captureNotesToInbox(config, store, { dryRun });
+    if (!dryRun) markNotesSeen();
     if (args.bool("json")) return console.log(JSON.stringify({ added, skipped }, null, 2));
 
     if (!added.length) console.log("Nothing to capture — no untouched note has a \"## Actions\" bullet.");
