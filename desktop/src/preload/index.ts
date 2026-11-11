@@ -16,6 +16,7 @@ const api: TaskAppApi = {
   move: (id, dest) => ipcRenderer.invoke("task:move", id, dest),
   edit: (id, patch) => ipcRenderer.invoke("task:edit", id, patch),
   setFocus: (id, on, replace) => ipcRenderer.invoke("task:focus", id, on, replace),
+  followUp: (id, text) => ipcRenderer.invoke("task:followUp", id, text),
   setOrder: (key, ids) => ipcRenderer.invoke("order:set", key, ids),
   capture: (text) => ipcRenderer.invoke("capture:add", text),
   previewCapture: (text) => ipcRenderer.invoke("capture:preview", text),

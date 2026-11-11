@@ -57,11 +57,12 @@ interface Props {
 
 /** Right-click menu for a task: Move, Set date and Set priority, each opening its own list. */
 export function TaskMenu({ target, lists, focus, today, onClose, onError }: Props) {
-  const [step, setStep] = useState<"actions" | "sections" | "date" | "priority" | "swap">("actions");
+  const [step, setStep] = useState<"actions" | "sections" | "date" | "priority" | "swap" | "followup">("actions");
   const { task } = target;
   // Edit the date the task already uses: its due date if it has one, otherwise when it starts.
   const [field, setField] = useState<DateField>(task.due ? "due" : "scheduled");
   const [picked, setPicked] = useState("");
+  const [followText, setFollowText] = useState("");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -84,6 +85,15 @@ export function TaskMenu({ target, lists, focus, today, onClose, onError }: Prop
     onClose();
     const r = await window.taskApp.setFocus(task.id, on, replace);
     if (!r.ok) onError(r.error ?? "Couldn't change your top 3.");
+  }
+
+  async function followUp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const text = followText.trim();
+    if (!text) return;
+    onClose();
+    const r = await window.taskApp.followUp(task.id, text);
+    if (!r.ok) onError(r.error ?? "Couldn't create that follow-up.");
   }
 
   async function edit(patch: TaskPatch) {
@@ -149,6 +159,10 @@ export function TaskMenu({ target, lists, focus, today, onClose, onError }: Prop
                 {!task.focus && focus.length >= MAX_FOCUS && <span aria-hidden="true">›</span>}
               </button>
             )}
+            <button role="menuitem" onClick={() => setStep("followup")}>
+              <span>Create follow-up</span>
+              <span aria-hidden="true">›</span>
+            </button>
             <button role="menuitem" onClick={() => setStep("sections")}>
               <span>Move</span>
               <span aria-hidden="true">›</span>
@@ -218,6 +232,23 @@ export function TaskMenu({ target, lists, focus, today, onClose, onError }: Prop
                 </button>
               );
             })}
+          </>
+        )}
+        {step === "followup" && (
+          <>
+            <div className="menu-title">Follow-up to “{task.title}”</div>
+            <form className="menu-follow" onSubmit={followUp}>
+              <input
+                autoFocus
+                aria-label="Follow-up task"
+                placeholder="e.g. chase on Friday"
+                value={followText}
+                onChange={(e) => setFollowText(e.target.value)}
+              />
+              <button type="submit" disabled={!followText.trim()}>
+                Add
+              </button>
+            </form>
           </>
         )}
         {step === "swap" && (

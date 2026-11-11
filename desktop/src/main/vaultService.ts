@@ -392,6 +392,20 @@ export class VaultService {
     });
   }
 
+  /**
+   * A new task filed in the same project or area, linked back to the original by a
+   * #followup/<id> tag (stable if the title changes) and a "Follow-up to:" note (readable in Obsidian).
+   */
+  followUp(id: string, text: string): Result {
+    if (!text.trim()) return { ok: false, error: "Nothing to add." };
+    return this.mutate(id, (store, realId) => {
+      const t = store.byId(realId);
+      if (!t) throw new Error("That task is gone. It may have been edited elsewhere.");
+      const { warning: _warning, ...input } = quickParse(text, new Date(), { dateOrder: this.config?.dateOrder });
+      store.add({ ...input, project: t.project, area: t.area, tags: [`#followup/${realId}`], notes: [`Follow-up to: ${t.title}`] });
+    });
+  }
+
   /** Saves a manual order. Ids that were still temporary are persisted first, as for any other write. */
   setOrder(key: string, ids: string[]): Result {
     if (!this.config) return { ok: false, error: this.loadError ?? "Vault not loaded." };

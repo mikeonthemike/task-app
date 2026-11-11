@@ -228,6 +228,7 @@ function registerIpc(): void {
   ipcMain.handle("task:move", (_e, id: string, dest: MoveDest) => vault.move(id, dest));
   ipcMain.handle("task:edit", (_e, id: string, patch: TaskPatch) => vault.edit(id, patch));
   ipcMain.handle("task:focus", (_e, id: string, on: boolean, replace?: string) => vault.setFocus(id, on, replace));
+  ipcMain.handle("task:followUp", (_e, id: string, text: string) => vault.followUp(id, text));
   ipcMain.handle("order:set", (_e, key: string, ids: string[]) => vault.setOrder(key, ids));
   ipcMain.handle("capture:add", (_e, text: string) => vault.capture(text));
   ipcMain.handle("capture:preview", (_e, text: string) => vault.previewCapture(text));
