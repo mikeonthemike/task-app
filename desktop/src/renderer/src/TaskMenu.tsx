@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ListInfo, MoveDest, Priority, TaskPatch, WidgetTask } from "../../shared/api";
 import { addDays, nextWeekday, relativeDate } from "./format";
 
@@ -42,17 +42,22 @@ const PRIORITIES: { value: Priority | null; label: string; mark: string }[] = [
   { value: "lowest", label: "Lowest", mark: "⏬" },
 ];
 
+/** Mirrors MAX_FOCUS in src/core/meta.ts. */
+const MAX_FOCUS = 3;
+
 interface Props {
   target: MenuTarget;
   lists: ListInfo[];
+  /** Today's current top 3, so a full one can offer a swap. */
+  focus: WidgetTask[];
   today: string;
   onClose: () => void;
   onError: (message: string) => void;
 }
 
 /** Right-click menu for a task: Move, Set date and Set priority, each opening its own list. */
-export function TaskMenu({ target, lists, today, onClose, onError }: Props) {
-  const [step, setStep] = useState<"actions" | "sections" | "date" | "priority">("actions");
+export function TaskMenu({ target, lists, focus, today, onClose, onError }: Props) {
+  const [step, setStep] = useState<"actions" | "sections" | "date" | "priority" | "swap">("actions");
   const { task } = target;
   // Edit the date the task already uses: its due date if it has one, otherwise when it starts.
   const [field, setField] = useState<DateField>(task.due ? "due" : "scheduled");
@@ -73,6 +78,12 @@ export function TaskMenu({ target, lists, today, onClose, onError }: Props) {
     onClose();
     const r = await window.taskApp.move(task.id, dest);
     if (!r.ok) onError(r.error ?? "Couldn't move that task.");
+  }
+
+  async function setFocus(on: boolean, replace?: string) {
+    onClose();
+    const r = await window.taskApp.setFocus(task.id, on, replace);
+    if (!r.ok) onError(r.error ?? "Couldn't change your top 3.");
   }
 
   async function edit(patch: TaskPatch) {
@@ -103,8 +114,12 @@ export function TaskMenu({ target, lists, today, onClose, onError }: Props) {
   ];
 
   const left = Math.max(EDGE, Math.min(target.x, window.innerWidth - MENU_W - EDGE));
-  const top = Math.max(EDGE, Math.min(target.y, window.innerHeight - EDGE - 40));
-  const maxHeight = window.innerHeight - top - EDGE;
+  // Open where you clicked, but slide up as far as needed to fit (measured, since each step differs in height).
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => setHeight(menuRef.current?.scrollHeight ?? 0), [step, field]);
+  const maxHeight = window.innerHeight - 2 * EDGE;
+  const top = Math.max(EDGE, Math.min(target.y, window.innerHeight - EDGE - Math.min(height, maxHeight)));
 
   return (
     <>
@@ -116,9 +131,18 @@ export function TaskMenu({ target, lists, today, onClose, onError }: Props) {
           onClose();
         }}
       />
-      <div className="menu" role="menu" style={{ left, top, width: MENU_W, maxHeight }}>
+      <div ref={menuRef} className="menu" role="menu" style={{ left, top, width: MENU_W, maxHeight }}>
         {step === "actions" && (
           <>
+            {!task.done && (
+              <button
+                role="menuitem"
+                onClick={() => (task.focus ? setFocus(false) : focus.length < MAX_FOCUS ? setFocus(true) : setStep("swap"))}
+              >
+                <span>{task.focus ? "Remove from top 3" : focus.length < MAX_FOCUS ? "Add to top 3" : "Swap into top 3"}</span>
+                {!task.focus && focus.length >= MAX_FOCUS && <span aria-hidden="true">›</span>}
+              </button>
+            )}
             <button role="menuitem" onClick={() => setStep("sections")}>
               <span>Move</span>
               <span aria-hidden="true">›</span>
@@ -188,6 +212,16 @@ export function TaskMenu({ target, lists, today, onClose, onError }: Props) {
                 </button>
               );
             })}
+          </>
+        )}
+        {step === "swap" && (
+          <>
+            <div className="menu-title">Swap out which?</div>
+            {focus.map((f) => (
+              <button key={f.id} role="menuitem" className="menu-task" title={f.title} onClick={() => setFocus(true, f.id)}>
+                <span>{f.title}</span>
+              </button>
+            ))}
           </>
         )}
         {step === "sections" && (

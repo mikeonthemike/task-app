@@ -98,7 +98,7 @@ export function MatrixWindow() {
         )}
 
         {error && <div className="toast">{error}</div>}
-        {menu && <TaskMenu target={menu} lists={snap.lists} today={snap.date} onClose={() => setMenu(null)} onError={setError} />}
+        {menu && <TaskMenu target={menu} lists={snap.lists} focus={snap.focus} today={snap.date} onClose={() => setMenu(null)} onError={setError} />}
       </div>
     </TaskMenuContext.Provider>
   );

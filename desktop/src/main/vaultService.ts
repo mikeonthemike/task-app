@@ -4,7 +4,9 @@ import { type AppConfig, loadConfig } from "../../../src/config.js";
 import { dailyNotePath, proposedTop3, readSection } from "../../../src/core/dailyNote.js";
 import { eisenhower } from "../../../src/core/eisenhower.js";
 import { taskJson } from "../../../src/core/json.js";
+import { applyOrder, loadOrder, saveOrder } from "../../../src/core/order.js";
 import { quickParse } from "../../../src/core/quickParse.js";
+import { MAX_FOCUS } from "../../../src/core/meta.js";
 import { TaskStore } from "../../../src/core/store.js";
 import { type Task, todayStr } from "../../../src/core/task.js";
 import type { CapturePreview, ListId, Matrix, MoveDest, ListInfo, Result, Snapshot, TaskPatch, WidgetTask } from "../shared/api.js";
@@ -30,6 +32,12 @@ function cleanPatch(patch: TaskPatch): TaskPatch {
   }
   return out;
 }
+
+/** Lists whose order is the user's to set; Upcoming, Waiting and Logbook are sorted by date. */
+const REORDERABLE = /^(all|inbox|anytime|someday|project:|area:|goal:)/;
+
+/** How the widget groups "All open" and goal lists; keep in step with ListView. */
+const groupName = (t: { project: string | null; area: string | null }) => t.project ?? t.area ?? "Inbox";
 
 /** Every open task outside Someday: Inbox first, then projects, then areas, each A–Z. */
 function allOpen(store: TaskStore): Task[] {
@@ -131,18 +139,26 @@ export class VaultService {
     const view = (t: Task) => this.toWidget(t, today);
 
     const plan = readSection(config, today, "Plan");
-    const focus = store.focus().map(view);
+    const order = loadOrder(config);
+    const ordered = (key: string, ts: WidgetTask[]) => applyOrder(ts, order[key]);
+    const focus = ordered(`focus@${today}`, store.focus().map(view));
     const proposed = focus.length || !plan ? [] : this.resolveProposed(plan).map(view);
-    const followUps = store
-      .waiting()
-      .filter((t) => t.scheduled && t.scheduled <= today)
-      .map(view);
+    const followUps = ordered(
+      `followups@${today}`,
+      store
+        .waiting()
+        .filter((t) => t.scheduled && t.scheduled <= today)
+        .map(view),
+    );
     const shown = new Set([...focus, ...proposed, ...followUps].map((t) => t.id));
-    const todayList = store
-      .today()
-      .filter((t) => !shown.has(t.id))
-      .map(view)
-      .sort((a, b) => Number(b.overdue) - Number(a.overdue));
+    const todayList = ordered(
+      `today@${today}`,
+      store
+        .today()
+        .filter((t) => !shown.has(t.id))
+        .map(view)
+        .sort((a, b) => Number(b.overdue) - Number(a.overdue)),
+    );
 
     return {
       ...empty,
@@ -164,9 +180,20 @@ export class VaultService {
   /** Tasks for one popover list, in the same order the TUI shows them. */
   list(id: ListId): WidgetTask[] {
     const store = this.store;
-    if (!store || this.loadError) return [];
+    const config = this.config;
+    if (!store || !config || this.loadError) return [];
     const today = todayStr();
-    return this.tasksFor(store, id).map((t) => this.toWidget(t, today));
+    const tasks = this.tasksFor(store, id).map((t) => this.toWidget(t, today));
+    if (!REORDERABLE.test(id)) return tasks;
+    const order = loadOrder(config);
+    if (id !== "all" && !id.startsWith("goal:")) return applyOrder(tasks, order[id]);
+    // Grouped lists (All open, a goal) keep their group sequence; each group has its own order.
+    const groups = new Map<string, WidgetTask[]>();
+    for (const t of tasks) {
+      const name = groupName(t);
+      groups.set(name, [...(groups.get(name) ?? []), t]);
+    }
+    return [...groups].flatMap(([name, ts]) => applyOrder(ts, order[`${id}/${name}`]));
   }
 
   /** The Eisenhower popout: the same quadrants as the vault's Eisenhower.md note. */
@@ -340,25 +367,62 @@ export class VaultService {
     return `obsidian://open?vault=${vault}&file=${path}`;
   }
 
+  /** Puts a task in today's top 3 or takes it out. A full top 3 needs `replace`: the focus task to swap out. */
+  setFocus(id: string, on: boolean, replace?: string): Result {
+    return this.mutateMany(replace ? [id, replace] : [id], (store, [realId, realReplace]) => {
+      const t = store.byId(realId);
+      if (!t) throw new Error("That task is gone. It may have been edited elsewhere.");
+      const current = store.focus().map((f) => f.id);
+      if (!on) {
+        store.setFocus(current.filter((x) => x !== realId));
+        return;
+      }
+      if (t.done) throw new Error(`"${t.title}" is already done.`);
+      if (current.includes(realId)) return;
+      if (current.length < MAX_FOCUS) {
+        store.setFocus([...current, realId]);
+        return;
+      }
+      if (!realReplace || !current.includes(realReplace)) throw new Error("Your top 3 is full. Pick one to swap out.");
+      store.setFocus(current.map((x) => (x === realReplace ? realId : x)));
+      // The newcomer takes the slot of the task it replaced.
+      const key = `focus@${todayStr()}`;
+      const saved = loadOrder(this.config!)[key];
+      if (saved?.includes(realReplace)) saveOrder(this.config!, key, saved.map((x) => (x === realReplace ? realId : x)));
+    });
+  }
+
+  /** Saves a manual order. Ids that were still temporary are persisted first, as for any other write. */
+  setOrder(key: string, ids: string[]): Result {
+    if (!this.config) return { ok: false, error: this.loadError ?? "Vault not loaded." };
+    if (!Array.isArray(ids) || typeof key !== "string" || !key || ids.some((i) => typeof i !== "string")) return { ok: false, error: "Bad order." };
+    return this.mutateMany(ids, (_store, real) => saveOrder(this.config!, key, real));
+  }
+
+  private mutate(id: string, fn: (store: TaskStore, realId: string) => void): Result {
+    return this.mutateMany([id], (store, [realId]) => fn(store, realId));
+  }
+
   /**
    * Every write starts from a fresh id-persisting scan, so line numbers are current. A task
    * that was id-less in the last read-only scan is matched by file and title instead.
    */
-  private mutate(id: string, fn: (store: TaskStore, realId: string) => void): Result {
+  private mutateMany(ids: string[], fn: (store: TaskStore, realIds: string[]) => void): Result {
     const store = this.store;
     if (!store) return { ok: false, error: this.loadError ?? "Vault not loaded." };
     try {
-      const before = store.byId(id);
+      const before = ids.map((id) => store.byId(id));
       store.refresh({ persistIds: true });
-      let realId = id;
-      if (before?.idPending) {
+      const realIds = ids.map((id, i) => {
+        const b = before[i];
+        if (!b?.idPending) return id;
         const match = store
           .all()
-          .find((t) => t.location.file === before.location.file && t.title === before.title && t.done === before.done);
-        if (!match) throw new Error(`Couldn't find "${before.title}" any more. It may have been edited elsewhere.`);
-        realId = match.id;
-      }
-      fn(store, realId);
+          .find((t) => t.location.file === b.location.file && t.title === b.title && t.done === b.done);
+        if (!match) throw new Error(`Couldn't find "${b.title}" any more. It may have been edited elsewhere.`);
+        return match.id;
+      });
+      fn(store, realIds);
       this.rescan();
       return { ok: true };
     } catch (e) {

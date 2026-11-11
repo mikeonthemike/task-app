@@ -204,7 +204,7 @@ Eisenhower matrix popout).
 Its main process imports `../src/core` directly, so a core change also affects the widget. The
 user runs the packaged copy in `~/Applications/task-app.app`, so after changing `src/core` or
 `desktop/`, run `npm run widget:install` (or tell the user to) or they'll keep running the old build. It uses a read-only scan (`new TaskStore(config, { persistIds: false })`)
-so its file watcher never writes. It never sets focus, and has no timer, AI calls or calendar writes
+so its file watcher never writes. It never *proposes* focus: you confirm the top 3 with the user, but the user can add, remove or swap a focus task from the row menu, and drag rows to reorder within a list (saved in `Tasks/.order.json` by `src/core/order.ts`, never in the task lines). It has no timer, AI calls or calendar writes
 (the user's choices). Keep it that way unless they ask.
 
 The Eisenhower popout sorts tasks with `src/core/eisenhower.ts`, which mirrors the vault's

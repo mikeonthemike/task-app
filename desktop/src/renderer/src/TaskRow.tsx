@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type HTMLAttributes } from "react";
 import type { WidgetTask } from "../../shared/api";
 import { metaParts } from "./format";
 import { useTaskMenu } from "./TaskMenu";
@@ -13,9 +13,13 @@ interface Props {
   hideWhere?: boolean;
   /** Leave the goal chip out (the list is already one project or goal). */
   hideGoal?: boolean;
+  /** Extra class names for the row (drag states). */
+  className?: string;
+  /** Drag-and-drop handlers, when the list can be reordered. */
+  drag?: HTMLAttributes<HTMLLIElement> & { draggable?: boolean };
 }
 
-export function TaskRow({ task, today, onError, compact, hideWhere, hideGoal }: Props) {
+export function TaskRow({ task, today, onError, compact, hideWhere, hideGoal, className, drag }: Props) {
   // Show the tick straight away; the vault write and rescan follow a moment later.
   const [pending, setPending] = useState(false);
   const openMenu = useTaskMenu();
@@ -35,7 +39,8 @@ export function TaskRow({ task, today, onError, compact, hideWhere, hideGoal }: 
   const repeats = !compact && !!task.recurrence;
   return (
     <li
-      className={`row${checked ? " done" : ""}`}
+      {...drag}
+      className={`row${checked ? " done" : ""}${className ? ` ${className.replace(/\s+/g, " ").trim()}` : ""}`}
       onContextMenu={
         compact
           ? undefined
