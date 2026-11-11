@@ -5,6 +5,7 @@ import { longDate } from "./format";
 import { ListPicker } from "./ListPicker";
 import { ListView } from "./ListView";
 import { TaskMenu, TaskMenuContext, type MenuTarget } from "./TaskMenu";
+import { SortableList } from "./SortableList";
 import { TaskRow } from "./TaskRow";
 import { useSnapshot } from "./useSnapshot";
 
@@ -47,12 +48,8 @@ export function Popover() {
   }, [error]);
 
   if (!snap) return null;
-  const rows = (tasks: WidgetTask[]) => (
-    <ul>
-      {tasks.map((t) => (
-        <TaskRow key={t.id} task={t} today={snap.date} onError={setError} />
-      ))}
-    </ul>
+  const rows = (tasks: WidgetTask[], orderKey?: string) => (
+    <SortableList tasks={tasks} orderKey={orderKey && `${orderKey}@${snap.date}`} today={snap.date} onError={setError} />
   );
 
   const current = snap.lists.find((l) => l.id === list);
@@ -109,7 +106,7 @@ export function Popover() {
                   Top 3 {!snap.focus.length && snap.proposed.length > 0 && <span className="badge">Proposed</span>}
                 </h2>
                 {snap.focus.length ? (
-                  rows(snap.focus)
+                  rows(snap.focus, "focus")
                 ) : snap.proposed.length ? (
                   <>
                     {rows(snap.proposed)}
@@ -130,7 +127,7 @@ export function Popover() {
               {snap.followUps.length > 0 && (
                 <section>
                   <h2>Follow up</h2>
-                  {rows(snap.followUps)}
+                  {rows(snap.followUps, "followups")}
                 </section>
               )}
 
@@ -138,7 +135,7 @@ export function Popover() {
                 <h2>
                   Today <span className="count">{snap.today.length || ""}</span>
                 </h2>
-                {snap.today.length ? rows(snap.today) : <p className="empty">Nothing else scheduled for today.</p>}
+                {snap.today.length ? rows(snap.today, "today") : <p className="empty">Nothing else scheduled for today.</p>}
               </section>
 
               {snap.doneToday.length > 0 && (
@@ -168,7 +165,7 @@ export function Popover() {
       </div>
 
       {error && <div className="toast">{error}</div>}
-      {menu && <TaskMenu target={menu} lists={snap.lists} today={snap.date} onClose={() => setMenu(null)} onError={setError} />}
+      {menu && <TaskMenu target={menu} lists={snap.lists} focus={snap.focus} today={snap.date} onClose={() => setMenu(null)} onError={setError} />}
 
       <footer>
         <CaptureInput today={snap.date} />

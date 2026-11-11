@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ListId, Snapshot, WidgetTask } from "../../shared/api";
-import { TaskRow } from "./TaskRow";
+import { SortableList } from "./SortableList";
 
 interface Props {
   id: ListId;
@@ -14,6 +14,9 @@ const EMPTY: Partial<Record<string, string>> = {
   upcoming: "Nothing scheduled ahead.",
   logbook: "Nothing completed yet.",
 };
+
+/** Lists the main process sorts by date, so they have no manual order. */
+const SORTED_BY_DATE = new Set(["upcoming", "waiting", "logbook"]);
 
 /** Any list other than Today: a flat list, or grouped by project for "All open" and goals. */
 export function ListView({ id, snap, onError }: Props) {
@@ -33,9 +36,18 @@ export function ListView({ id, snap, onError }: Props) {
 
   const scoped = id.startsWith("project:") || id.startsWith("area:");
   const inGoal = id.startsWith("goal:");
-  const row = (t: WidgetTask) => <TaskRow key={t.id} task={t} today={snap.date} onError={onError} hideWhere={scoped || id === "all" || id === "inbox"} hideGoal={scoped || inGoal} />;
+  const list = (ts: WidgetTask[], key: string) => (
+    <SortableList
+      tasks={ts}
+      orderKey={SORTED_BY_DATE.has(id) ? undefined : key}
+      today={snap.date}
+      onError={onError}
+      hideWhere={scoped || id === "all" || id === "inbox"}
+      hideGoal={scoped || inGoal}
+    />
+  );
 
-  if (id !== "all" && !inGoal) return <ul>{tasks.map(row)}</ul>;
+  if (id !== "all" && !inGoal) return list(tasks, id);
 
   // A goal list is grouped by project too, so you can see which project is carrying it.
   const ordered = inGoal ? [...tasks].sort((a, b) => (a.project ?? a.area ?? "~").localeCompare(b.project ?? b.area ?? "~")) : tasks;
@@ -53,7 +65,7 @@ export function ListView({ id, snap, onError }: Props) {
           <h2>
             {g.name} <span className="count">{g.tasks.length}</span>
           </h2>
-          <ul>{g.tasks.map(row)}</ul>
+          {list(g.tasks, `${id}/${g.name}`)}
         </section>
       ))}
     </>
