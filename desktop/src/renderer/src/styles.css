@@ -347,6 +347,15 @@ details[open] > summary::before {
   box-shadow: 0 2px 0 var(--accent);
 }
 
+.menu .menu-back {
+  justify-content: flex-start;
+  gap: 6px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--hover);
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 2px;
+}
+
 .menu .menu-task span {
   overflow: hidden;
   text-overflow: ellipsis;

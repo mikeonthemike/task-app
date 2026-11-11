@@ -132,6 +132,12 @@ export function TaskMenu({ target, lists, focus, today, onClose, onError }: Prop
         }}
       />
       <div ref={menuRef} className="menu" role="menu" style={{ left, top, width: MENU_W, maxHeight }}>
+        {step !== "actions" && (
+          <button role="menuitem" className="menu-back" onClick={() => setStep("actions")}>
+            <span aria-hidden="true">‹</span>
+            <span>Back</span>
+          </button>
+        )}
         {step === "actions" && (
           <>
             {!task.done && (
