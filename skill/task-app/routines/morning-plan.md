@@ -1,11 +1,8 @@
 # Routine: morning plan
 
-Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, that the user (and anything else
-that reads the note, such as a morning-brief skill) can read in 30 seconds. **Propose only**: the user confirms the top 3 before
-anything is marked, and calendar blocks are never created without an explicit yes.
+Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, plus blank `## Notes` and `## Actions` sections, that the user (and anything else that reads the note, such as a morning-brief skill) can read in 30 seconds. **Propose only**: the user confirms the top 3 before anything is marked, and calendar blocks are never created without an explicit yes.
 
-Use the timezone and working day from the skill's "Time and working hours". Get today's date
-from `date +%F`.
+Use the timezone and working day from the skill's "Time and working hours". Get today's date from `date +%F`.
 
 ## 1. Gather (read-only)
 

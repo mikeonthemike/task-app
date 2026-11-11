@@ -23,7 +23,7 @@ export interface NoteInfo {
   actions: string | null; // body of ## Actions, if present and non-empty
   /** Bullets in ## Actions that `capture` would treat as actions (see actionBullets). */
   actionCount: number;
-  /** Ticked (`- [x]`) bullets in ## Actions: already done in the note, so never captured. */
+  /** Ticked (`- [x]`) bullets in ## Actions: already done in the note, captured straight into the Logbook as done. */
   doneCount: number;
   /** Tasks already captured from this note (their notes say "From: <name>.md" or "From: [[<name>]]"). */
   captured: { id: string; title: string; done: boolean }[];
@@ -53,7 +53,12 @@ function asString(v: unknown): string | null {
 
 /** Whether a task's notes say it was captured from the note called `name`. */
 export function capturedFrom(t: Task, name: string): boolean {
-  return t.notes.some((n) => n === `From: ${name}.md` || n === `From: [[${name}]]` || n === `From: ${name}`);
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // "From: <name>.md", "From: [[<name>]]", "From: <name>", optionally with a folder path and a
+  // trailing remark ("From: 2026-10-20.md (MOT notes)"). Without `.md`/`]]` the name must end the
+  // note or be followed by punctuation, so "Intro with Peter" doesn't claim "Intro with Peter Smith".
+  const re = new RegExp(`^From:\\s*(?:\\[\\[)?(?:[^\\]]*/)?${esc}(?:\\.md|\\]\\]|(?=$|[;,(:]))`, "i");
+  return t.notes.some((n) => re.test(n.trim()));
 }
 
 const WATERMARK_PATH = () => join(configDir(), "notes-watermark.json");
@@ -158,12 +163,30 @@ function actionBullets(actionsBody: string): string[] {
   return out;
 }
 
+/** Bullets pasted from a task line may carry Tasks emoji fields (`✅ 2026-10-16`); they aren't part of the title. */
+function stripTaskFields(text: string): string {
+  return text
+    .replace(/\s*[✅📅⏳🛫➕❌]\s*\d{4}-\d{2}-\d{2}/gu, "")
+    .replace(/\s*(?:🆔\s*\S+|[🔺⏫🔼🔽⏬]|🔁[^✅📅⏳🛫➕❌🆔]*)/gu, "")
+    .trim();
+}
+
 function doneBullets(actionsBody: string): number {
-  return actionsBody.split("\n").filter((l) => /^\s*[-*+]\s+\[[xX]\]/.test(l)).length;
+  return tickedBullets(actionsBody).length;
+}
+
+/** Text of each `- [x]` bullet (same exclusions as actionBullets). */
+function tickedBullets(actionsBody: string): string[] {
+  const out: string[] = [];
+  for (const line of actionsBody.split("\n")) {
+    const text = /^\s*[-*+]\s+\[[xX]\]\s*(.*)$/.exec(line)?.[1]?.trim();
+    if (text && !text.endsWith(":") && !/^<.*>$/.test(text)) out.push(text);
+  }
+  return out;
 }
 
 export interface CaptureResult {
-  added: { id: string; title: string; from: string }[];
+  added: { id: string; title: string; from: string; done?: boolean }[];
   skipped: { name: string; reason: string }[];
 }
 
@@ -187,8 +210,20 @@ export function captureNotesToInbox(config: AppConfig, store: TaskStore, opts: {
       skipped.push({ name: note.name, reason: `already has ${note.captured.length} task(s) captured from it` });
       continue;
     }
+    // Already ticked in the note: record them as done so they land in the Logbook.
+    for (const raw of tickedBullets(note.actions)) {
+      const title = cleanTitle(stripTaskFields(raw));
+      if (!title) continue;
+      if (opts.dryRun) {
+        added.push({ id: "(dry-run)", title, from: note.path, done: true });
+      } else {
+        const task = store.add({ title, notes: [`From: ${note.name}.md`] });
+        store.complete(task.id);
+        added.push({ id: task.id, title: task.title, from: note.path, done: true });
+      }
+    }
     for (const raw of actionBullets(note.actions)) {
-      const title = cleanTitle(raw);
+      const title = cleanTitle(stripTaskFields(raw));
       if (!title) continue;
       if (opts.dryRun) {
         added.push({ id: "(dry-run)", title, from: note.path });
@@ -198,5 +233,6 @@ export function captureNotesToInbox(config: AppConfig, store: TaskStore, opts: {
       }
     }
   }
+  if (!opts.dryRun && added.some((a) => a.done)) store.sweep();
   return { added, skipped };
 }

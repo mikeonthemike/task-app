@@ -208,15 +208,20 @@ describe("meeting notes scan", () => {
     write("Catch up.md", "## Actions\n- [ ] Send deck\n- [ ]\n- [x] Done already\n- set up meetings:\n  - Book room\n- <Insert Actions>\n");
     const note = scanNotes(config, [], { since: "2000-01-01" }).find((n) => n.name === "Catch up")!;
     assert.equal(note.actionCount, 2);
-    assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 2);
+    assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 3); // + the ticked one, logged as done
   });
 
-  test("a singular ## Action heading counts, and ticked bullets are reported but not captured", () => {
+  test("a singular ## Action heading counts, and ticked bullets are captured straight into the Logbook", () => {
     write("Standup.md", "## Action\n- [x] Review change\n- [x] Reraise ticket\n");
     const note = scanNotes(config, [], { since: "2000-01-01" }).find((n) => n.name === "Standup")!;
     assert.equal(note.actionCount, 0);
     assert.equal(note.doneCount, 2);
-    assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 0);
+    assert.equal(captureNotesToInbox(config, new TaskStore(config), { dryRun: true }).added.length, 2);
+    const store = new TaskStore(config);
+    captureNotesToInbox(config, store);
+    const logged = store.all().filter((t) => t.done && t.notes.includes("From: Standup.md"));
+    assert.equal(logged.length, 2);
+    assert.equal(captureNotesToInbox(config, new TaskStore(config)).added.length, 0);
   });
 
   test("sinceMs only returns notes modified after the watermark", () => {
@@ -275,14 +280,15 @@ describe("capture notes into inbox", () => {
     assert.equal(store.all().length, 1);
   });
 
-  test("handles real checkbox syntax under Actions: strips [ ], skips [x] and empty checkboxes", () => {
+  test("handles real checkbox syntax under Actions: strips [ ], logs [x] as done, skips empty checkboxes", () => {
     write(
       "Standup notes.md",
       "## Actions\n- [ ] file the expense report\n- [x] already sent the invite\n- [ ]\n",
     );
     const store = new TaskStore(config);
     const { added } = captureNotesToInbox(config, store);
-    assert.deepEqual(added.map((a) => a.title), ["file the expense report"]);
+    assert.deepEqual(added.map((a) => a.title), ["already sent the invite", "file the expense report"]);
+    assert.deepEqual(added.map((a) => !!a.done), [true, false]);
   });
 
   test("skips an unfilled template placeholder", () => {
