@@ -164,7 +164,8 @@ Usage:
   task-app capture [--dry-run] [--json]
                                      The sweep of the notes world: adds every
                                      ## Actions bullet from a note into the Inbox,
-                                     tagged "From: <name>.md". Only touches a note
+                                     tagged "From: <name>.md"; ticked (- [x])
+                                     bullets go straight to the Logbook. Only touches a note
                                      with nothing captured from it yet — once
                                      anything has, later changes to that note are
                                      "process my notes" work, not this. --dry-run
@@ -491,7 +492,7 @@ async function main(): Promise<void> {
     if (!added.length) console.log("Nothing to capture — no untouched note has a \"## Actions\" bullet.");
     else {
       console.log(`${dryRun ? "Would capture" : "Captured"} ${added.length} task(s) into Inbox:`);
-      for (const a of added) console.log(`  ${a.title}${dryRun ? "" : ` (${a.id})`} — from ${a.from}`);
+      for (const a of added) console.log(`  ${a.done ? "[x] " : ""}${a.title}${dryRun ? "" : ` (${a.id})`} — from ${a.from}${a.done ? " → Logbook" : ""}`);
     }
     if (skipped.length) {
       console.log(`\nLeft alone (already engaged):`);
