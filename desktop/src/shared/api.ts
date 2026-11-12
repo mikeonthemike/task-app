@@ -117,6 +117,8 @@ export interface TaskAppApi {
   /** Add a task to today's top 3, or take it out. When the top 3 is full, `replace` is the focus task it takes the place of. */
   setFocus(id: string, on: boolean, replace?: string): Promise<Result>;
   /** Save a manual order for one list or group (`key` from the snapshot's order keys); `ids` top to bottom. */
+  /** Create a new task from `text` (dates parsed as in quick capture), filed beside `id` and linked back to it. */
+  followUp(id: string, text: string): Promise<Result>;
   setOrder(key: string, ids: string[]): Promise<Result>;
   capture(text: string): Promise<Result>;
   previewCapture(text: string): Promise<CapturePreview>;

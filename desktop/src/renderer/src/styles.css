@@ -662,13 +662,15 @@ body[data-view="pill"] {
   color: #fff;
 }
 
-.menu-date {
+.menu-date,
+.menu-follow {
   display: flex;
   gap: 4px;
   padding: 3px 4px 3px 8px;
 }
 
-.menu-date input {
+.menu-date input,
+.menu-follow input {
   flex: 1;
   min-width: 0;
   font: inherit;
@@ -680,7 +682,8 @@ body[data-view="pill"] {
   padding: 2px 4px;
 }
 
-.menu .menu-date button {
+.menu .menu-date button,
+.menu .menu-follow button {
   width: auto;
   padding: 2px 8px;
 }
