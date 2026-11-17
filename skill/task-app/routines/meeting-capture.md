@@ -10,8 +10,11 @@ task-app list all --json                        # existing tasks, for dedup and 
 ```
 
 For each note:
-1. Candidate actions come from its `## Actions` section first; for notes without one, from
-   clear commitments in the body ("I'll…", "need to…", "X to send Y").
+1. Candidate actions come from its `## Actions` section first. Then scan the body (`## Notes`,
+   or the whole note if there are no sections) for clear commitments or deadlines ("I'll…",
+   "need to…", "X to send Y", "by Wednesday"), even when Actions has items: the user sometimes
+   forgets to move one across. Tag each body-sourced candidate "(from Notes, not Actions)" when
+   you list it, because it may only describe how a process runs. Let the user decide.
 2. **Skip anything already covered.** Check the note's `captured` list and compare meaning,
    not wording. Also check open tasks generally, since the same action often appears in two notes.
 3. Classify each remaining action:
