@@ -11,7 +11,7 @@ Timezone and working day: see the skill's "Time and working hours". Today = `dat
 ```bash
 task-app review --json          # doneToday, focus (still open = carry-over), follow-ups, dueSoon
 task-app note show --json       # today's Plan (what was intended) and any existing Shutdown
-task-app notes --json           # notes changed today: ## Actions + already-captured tasks
+task-app notes --content --json # notes changed today: ## Actions, full text, already-captured tasks
 ```
 
 Calendar: tomorrow's events (local time), to judge tomorrow's capacity and spot
@@ -23,8 +23,12 @@ anything needing prep.
 - **Carry-over**: focus tasks still open. One line each on why, if it's obvious (e.g. the
   calendar ate the block); don't guess otherwise.
 - **To capture**: from `notes`, action lines in today's notes (and the daily note) that no
-  task in `captured` covers. Compare meaning, not exact wording. List them as candidates; **don't
-  add them**. The user asked for capture on demand only, so they say "capture those" to add them.
+  task in `captured` covers. Compare meaning, not exact wording. Also scan each note's `## Notes`
+  body for lines that read like an action (a deadline, "need to…", "X to send Y"): the user
+  sometimes forgets to write one under Actions. Tag those "(from Notes, not Actions)" so they
+  can tell a missed action from a note about how a process runs. List them all as candidates;
+  **don't add them**. The user asked for capture on demand only, so they say "capture those" to
+  add them.
 - **Draft top 3 for tomorrow**: carry-overs first if still right, then due-soon, then goal
   work. Check against tomorrow's free time.
 - **Prep for tomorrow**: meetings tomorrow that need something read or decided today.
@@ -49,6 +53,7 @@ Pipe into `task-app note write --section Shutdown`:
 **To capture?** (from today's notes, not yet tasks)
 - Intro with Alex Chen: "share CRM readiness view by Friday"
 - CRM Research: "profile tenant data sizes"
+- Vendor sync: "change record due Wednesday midday" (from Notes, not Actions)
 
 **Draft top 3 for tomorrow**
 1. … (id) · goal · ~est
