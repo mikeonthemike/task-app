@@ -236,3 +236,17 @@ shows it regardless of which file it's still sitting in. If you notice Project/A
 files getting cluttered with old `[x]` lines (or the user asks you to tidy up), run
 `task-app sweep` to relocate them into `Logbook.md`. It's safe to run proactively;
 it's a no-op when there's nothing to sweep.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `mikeonthemike/task-app` (the repo is public, so keep real work names out of issue text), via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily when needed. See `docs/agents/domain.md`.
