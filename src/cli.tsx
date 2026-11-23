@@ -16,7 +16,7 @@ import { taskJson } from "./core/json.js";
 import { estimateTags, focusTags, formatDuration, goalTags, isFocus, MAX_FOCUS, waitingOn, waitingTags } from "./core/meta.js";
 import { resolveGoal, updateProjectMeta } from "./core/goals.js";
 import { buildReview } from "./core/review.js";
-import { dailyNotePath, listSections, previousNoteDate, readNote, readSection, writeSection } from "./core/dailyNote.js";
+import { dailyNotePath, ensureSections, listSections, previousNoteDate, readNote, readSection, writeSection } from "./core/dailyNote.js";
 import { captureNotesToInbox, markNotesSeen, readNotesWatermark, scanNotes } from "./core/notes.js";
 import { todayStr } from "./core/task.js";
 import { readFileSync } from "node:fs";
@@ -144,6 +144,10 @@ Usage:
                                      Read/replace a "## S" section of the daily
                                      note <vault>/YYYY-MM-DD.md. Other content
                                      in the note is never touched.
+  task-app note ensure --section S [--section S2 ...] [--date D]
+                                     Add an empty "## S" heading for each one
+                                     the note lacks. Never changes a section
+                                     that already exists.
 
   task-app move <id> [flags]        Move a task to a different location.
     --project <name> | --area <name> | --someday | --inbox
@@ -458,7 +462,14 @@ async function main(): Promise<void> {
       console.log(`${created ? "Created" : "Updated"} "## ${section}" in ${path}`);
       return;
     }
-    throw new Error('Usage: task-app note show|write ... (see "task-app help")');
+    if (sub === "ensure") {
+      const names = args.many("section");
+      if (!names.length) throw new Error("Usage: task-app note ensure --section <Name> [--section <Name> ...] [--date YYYY-MM-DD]");
+      const { path, added } = ensureSections(config, date, names);
+      console.log(added.length ? `Added ${added.map((n) => `"## ${n}"`).join(", ")} to ${path}` : `Nothing to add: ${path} already has those sections.`);
+      return;
+    }
+    throw new Error('Usage: task-app note show|write|ensure ... (see "task-app help")');
   }
 
   if (cmd === "notes") {

@@ -344,6 +344,7 @@ A task line:
 | `project <name>` | Show a project, or set its `--goal` / `--area` frontmatter |
 | `review [--json]` | Everything a plan or review needs in one read |
 | `note show` / `note write` | Read or replace a `## Section` of a daily note |
+| `note ensure` | Add empty `## Section` headings a daily note lacks, without touching existing ones |
 | `notes [--since D]` | Notes changed since a date, with their `## Actions` and what's been captured |
 | `capture [--dry-run]` | Sweep `## Actions` bullets from untouched notes into the Inbox |
 | `sweep` | Move completed tasks into `Logbook.md` |

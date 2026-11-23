@@ -40,6 +40,7 @@ task-app project <name> [--goal G|none] [--area A|none]   # show a project / set
 task-app review [--json] [--date D]   # one read of everything a plan/review needs
 task-app note show [--date D] [--section S] [--json]
 task-app note write --section S [--date D] [--text "..."]  # or pipe the body on stdin
+task-app note ensure --section S [--section S2 ...] [--date D]  # add empty headings the note lacks; never touches existing ones
 task-app note show --previous --section Shutdown   # latest earlier note with that section
 task-app notes [--since D] [--content] [--json]    # changed notes: ## Actions + tasks already captured from each
 task-app capture [--dry-run] [--json]   # the sweep of the notes world: adds every ## Actions bullet from an untouched note into the Inbox
@@ -114,7 +115,8 @@ the last 7 days' completions, and any `doctor` issues.
 Each day's plan lives in the user's Obsidian daily note, `<vault>/YYYY-MM-DD.md` (or the
 `dailyNotesDir` set in the config). Only `task-app note write` touches it, and only the
 `## <Section>` it's given (`Plan`, `Meetings`, `Shutdown`). The user's own notes in the file are never
-modified. Write plans as plain numbered or bulleted lists that reference task ids like
+modified. The one exception is `task-app note ensure`, which adds empty `## Notes` / `## Actions`
+headings when they're missing and never changes a section that exists. Never `note write` those two. Write plans as plain numbered or bulleted lists that reference task ids like
 `(abc123)`, **never `- [ ]` checkboxes**, because the Obsidian Tasks plugin would pick those up
 as duplicate tasks.
 
