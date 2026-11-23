@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, test } from "node:test";
 import type { AppConfig } from "../src/config.js";
 import { parseArgs, parseFullEdit, tokenize } from "../src/core/cliArgs.js";
 import { quickParse } from "../src/core/quickParse.js";
-import { proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
+import { ensureSections, proposedTop3, readSection, writeSection } from "../src/core/dailyNote.js";
 import { loadGoals, resolveGoal, updateProjectMeta } from "../src/core/goals.js";
 import { estimateTags, focusTags, parseDuration, waitingOn, waitingTags } from "../src/core/meta.js";
 import { fixVault } from "../src/core/doctor.js";
@@ -165,6 +165,26 @@ describe("daily note sections", () => {
     assert.equal(readSection(config, date, "Missing"), null);
   });
 
+  test("ensureSections adds only missing headings and never touches existing ones", () => {
+    const date = "2026-09-24";
+    // No note yet: creates it with the empty headings.
+    assert.deepEqual(ensureSections(config, date, ["Notes", "Actions"]).added, ["Notes", "Actions"]);
+    assert.equal(read(`${date}.md`), "## Notes\n\n## Actions\n");
+
+    // The user writes under Notes; the plan lands; ensure again is a no-op on their text.
+    write(`${date}.md`, "## Notes\nmet Alex\n\n## Actions\n- call Sam\n");
+    writeSection(config, date, "Plan", "1. First");
+    const before = read(`${date}.md`);
+    assert.deepEqual(ensureSections(config, date, ["notes", "Actions"]).added, []);
+    assert.equal(read(`${date}.md`), before);
+
+    // Only the missing one is appended, at the end, once.
+    assert.deepEqual(ensureSections(config, date, ["Notes", "Meetings", "meetings"]).added, ["Meetings"]);
+    const note = read(`${date}.md`);
+    assert.match(note, /## Notes\nmet Alex\n\n## Actions\n- call Sam\n/);
+    assert.match(note, /## Plan\n\n1\. First\n\n## Meetings\n$/);
+  });
+
   test("honours dailyNotesDir", () => {
     config.dailyNotesDir = "Daily";
     writeSection(config, "2026-09-24", "Plan", "x");
@@ -242,6 +262,15 @@ describe("CLI end to end", () => {
   beforeEach(() => {
     write(".config/task-app/config.json", JSON.stringify({ vaultPath: config.vaultPath, tasksDir: "Tasks" }));
     write("Tasks/Goals.md", GOALS);
+  });
+
+  test("note ensure adds missing sections and leaves existing ones alone", () => {
+    const date = "2026-09-24";
+    cli(["note", "write", "--section", "Plan", "--date", date, "--text", "1. First"]);
+    write(`${date}.md`, `${read(`${date}.md`)}\n## Notes\nmine\n`);
+    assert.match(cli(["note", "ensure", "--section", "Notes", "--section", "Actions", "--date", date]), /Added "## Actions"/);
+    assert.equal(read(`${date}.md`), "## Plan\n\n1. First\n\n## Notes\nmine\n\n## Actions\n");
+    assert.match(cli(["note", "ensure", "--section", "Notes", "--section", "Actions", "--date", date]), /Nothing to add/);
   });
 
   test("add with meta flags, then list focus/waiting as JSON", () => {

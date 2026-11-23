@@ -63,6 +63,7 @@ task-app notes [--since D] [--content] [--json]   # notes changed since D: ## Ac
 task-app capture [--dry-run] [--json]   # sweep of the notes world: every ## Actions bullet from an untouched note → Inbox, verbatim
 task-app note show [--date D] [--section S] [--previous] [--json]
 task-app note write --section S [--date D] [--text "..."]   # or pipe the body on stdin (preferred)
+task-app note ensure --section S [--section S2 ...] [--date D]   # add empty headings the note lacks; never touches existing ones
 task-app sweep                    # archive completed tasks into Logbook.md; safe anytime
 task-app doctor [--fix] [--json]  # vault health check
 ```
@@ -120,8 +121,10 @@ to the user. Dates are `YYYY-MM-DD`; resolve relative dates yourself (`date +%F`
   day/week/month/year(s)`, `every weekday`, `every <weekday>`, `every [N] month(s) on the last`
   (month end: use this, not `every month` from a 31st, which drifts), optionally `… when done`.
 - **The daily note** (`<vault>/YYYY-MM-DD.md`) is the master record of the day. task-app owns only
-  its `## Plan`, `## Meetings`, `## Shutdown` and `## Weekly Review` sections, written with `note write`. Write
-  them as plain lists that reference task ids like `(abc123)`, **never `- [ ]` checkboxes**
+  its `## Plan`, `## Meetings`, `## Shutdown` and `## Weekly Review` sections, written with `note write`.
+  `## Notes` and `## Actions` are the user's: task-app may only add them as empty headings with
+  `note ensure`, never `note write` them (that replaces the whole section). Write the owned sections
+  as plain lists that reference task ids like `(abc123)`, **never `- [ ]` checkboxes**
   (Obsidian Tasks would treat those as duplicate tasks).
 
 ## Routines

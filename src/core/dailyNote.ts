@@ -98,6 +98,32 @@ export function writeSection(config: AppConfig, date: string, name: string, body
 }
 
 /**
+ * Adds an empty `## name` heading for each section the note doesn't have yet (matched
+ * case-insensitively, like `writeSection`). A section that already exists is never touched,
+ * so this is safe on the user's own sections (`Notes`, `Actions`). Creates the note if needed.
+ * Returns the names it added, in order.
+ */
+export function ensureSections(config: AppConfig, date: string, names: string[]): { path: string; added: string[] } {
+  const path = dailyNotePath(config, date);
+  const existing = readNote(config, date);
+  const lines = existing === null ? [] : existing.split("\n");
+  const added: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    if (!name || findSection(lines, name) || added.some((a) => a.toLowerCase() === name.toLowerCase())) continue;
+    while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+    if (lines.length) lines.push("");
+    lines.push(`## ${name}`, "");
+    added.push(name);
+  }
+  if (added.length) {
+    if (existing === null) mkdirSync(dirname(path), { recursive: true });
+    writeFileAtomic(path, lines.join("\n"));
+  }
+  return { path, added };
+}
+
+/**
  * The task ids proposed under `**Top 3**` in a `## Plan` body, in order. Each numbered item
  * contributes its parenthesised id-like tokens ("(k3Jd9sQa)"), since a title can carry other
  * parentheses; the caller keeps the first that is a real task.

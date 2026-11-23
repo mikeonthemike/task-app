@@ -1,6 +1,6 @@
 # Routine: morning plan
 
-Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, plus blank `## Notes` and `## Actions` sections, that the user (and anything else that reads the note, such as a morning-brief skill) can read in 30 seconds. **Propose only**: the user confirms the top 3 before anything is marked, and calendar blocks are never created without an explicit yes.
+Goal: by ~08:30, today's daily note has a short `## Plan`, plus a succinct `## Meetings` section, plus empty `## Notes` and `## Actions` headings (end of step 4), that the user (and anything else that reads the note, such as a morning-brief skill) can read in 30 seconds. **Propose only**: the user confirms the top 3 before anything is marked, and calendar blocks are never created without an explicit yes.
 
 Use the timezone and working day from the skill's "Time and working hours". Get today's date from `date +%F`.
 
@@ -74,6 +74,17 @@ Meeting context goes in its own section (next step), not the Plan. At most, Watc
 Follow `meeting-prep.md` to write today's `## Meetings` section, reusing the calendar events and
 `review --json` you already have. Gmail and Slack searches are read-only, so they're fine
 unattended. If a Calendar fetch failed, skip this step and say so in one line.
+
+Then, even if you skipped the Meetings section, make sure the note has empty headings for the
+user's own notes:
+
+```bash
+task-app note ensure --section Notes --section Actions
+```
+
+It adds only the headings that are missing and never changes a section that already exists, so
+it's safe on a re-run and on a note the user has already started. Never `note write` these two
+sections: that replaces their whole body.
 
 ## 5. Hand over
 
